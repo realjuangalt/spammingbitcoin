@@ -6,15 +6,14 @@ import random
 import httpx
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse
-from fastapi.templating import Jinja2Templates
-
-from x402_pow.config import MEMES_DIR, ROOT, get_settings
+from x402_pow.config import DATA_DIR, MEMES_DIR, ROOT, get_settings
 from x402_pow.facilitator.settle import SettleError, settle_receipt
 from x402_pow.publishers import service as publishers
 from x402_pow.scheme.media_tokens import issue_media_token, load_media_token
 from x402_pow.scheme.payment import encode_payment_required, payment_required
+from x402_pow.web.jinja import make_templates
 
-TEMPLATES = Jinja2Templates(directory=str(ROOT / "templates" / "demo_site"))
+TEMPLATES = make_templates()
 
 app = FastAPI(title="x402-pow demo meme site")
 # Memes are NOT mounted publicly — only via /meme/media/{token} after PoW.
@@ -128,7 +127,7 @@ async def index(request: Request):
     settings = get_settings()
     return TEMPLATES.TemplateResponse(
         request,
-        "index.html",
+        "demo_site/index.html",
         {
             "title": "Spamming Bitcoin — PoW meme vault",
             "domain": settings.domain,
@@ -149,7 +148,7 @@ async def meme(request: Request):
             meme_item = pick_meme()
             return TEMPLATES.TemplateResponse(
                 request,
-                "unlocked.html",
+                "demo_site/unlocked.html",
                 unlocked_context(meme_item, receipt),
             )
         except SettleError:
@@ -176,7 +175,7 @@ async def meme(request: Request):
     header_b64 = encode_payment_required(body)
     return TEMPLATES.TemplateResponse(
         request,
-        "paywall.html",
+        "demo_site/paywall.html",
         {
             "title": "Payment Required — Bitcoin PoW",
             "payment": body,
@@ -210,7 +209,7 @@ async def unlock(
     meme_item = pick_meme()
     return TEMPLATES.TemplateResponse(
         request,
-        "unlocked.html",
+        "demo_site/unlocked.html",
         unlocked_context(
             meme_item,
             receipt,

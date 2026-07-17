@@ -51,7 +51,7 @@ def submit_share(
                     upstream_job_id=str(meta["upstream_job_id"]),
                     extranonce2=str(meta["extranonce2"]),
                     ntime=str(meta["ntime"]),
-                    nonce=nonce,
+                    nonce_hex=f"{nonce & 0xFFFFFFFF:08x}",
                 )
                 forwarded = True
         except Exception:

@@ -122,7 +122,9 @@
     code { color: var(--accent); word-break: break-all; }
   </style>
 </head>
-<body class="net-{{ network }}">
+<body class="has-site-masthead net-{{ network }}">
+  {% include "partials/masthead.html" %}
+
   <div class="wrap">
     <div class="net-banner" role="status">
       <div>

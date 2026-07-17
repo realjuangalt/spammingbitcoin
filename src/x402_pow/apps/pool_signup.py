@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from x402_pow.config import ROOT, get_settings
 from x402_pow.payouts import list_payouts, try_payout_publisher, unpaid_sats
 from x402_pow.publishers import service as publishers
 
-TEMPLATES = Jinja2Templates(directory=str(ROOT / "templates" / "pool_signup"))
+from x402_pow.web.jinja import make_templates
+
+TEMPLATES = make_templates()
 DOCS_MD = ROOT / "docs" / "site-owners.md"
 
 app = FastAPI(title="x402-pow pool signup")
@@ -43,7 +44,7 @@ async def signup_form(request: Request):
     settings = get_settings()
     return TEMPLATES.TemplateResponse(
         request,
-        "signup.html",
+        "pool_signup/signup.html",
         {
             "title": "Enroll — Spamming Bitcoin",
             "default_bits": settings.access_zero_bits,
@@ -90,7 +91,7 @@ async def enroll(
     )
     return TEMPLATES.TemplateResponse(
         request,
-        "credentials.html",
+        "pool_signup/credentials.html",
         {
             "title": "You're enrolled",
             "pub": pub,
@@ -112,7 +113,7 @@ async def site_portal(request: Request, token: str):
     pub = publishers.get_by_portal_token(token)
     if pub is None:
         return HTMLResponse("<h1>Unknown or invalid portal link</h1>", status_code=404)
-    return TEMPLATES.TemplateResponse(request, "portal.html", _portal_context(pub))
+    return TEMPLATES.TemplateResponse(request, "pool_signup/portal.html", _portal_context(pub))
 
 
 @app.post("/s/{token}/ln", response_class=HTMLResponse)
@@ -123,7 +124,7 @@ async def site_update_ln(request: Request, token: str, lightning_address: str = 
     pub = publishers.update_lightning_address(pub.id, lightning_address) or pub
     return TEMPLATES.TemplateResponse(
         request,
-        "portal.html",
+        "pool_signup/portal.html",
         _portal_context(pub, flash="Lightning address saved."),
     )
 
@@ -144,14 +145,14 @@ async def site_payout(request: Request, token: str):
         )
     return TEMPLATES.TemplateResponse(
         request,
-        "portal.html",
+        "pool_signup/portal.html",
         _portal_context(pub, flash=flash, flash_err=not ok),
     )
 
 
 @app.get("/balance", response_class=HTMLResponse)
 async def balance_form(request: Request):
-    return TEMPLATES.TemplateResponse(request, "balance.html", {"title": "Site balance"})
+    return TEMPLATES.TemplateResponse(request, "pool_signup/balance.html", {"title": "Site balance"})
 
 
 @app.post("/balance", response_class=HTMLResponse)
@@ -166,7 +167,7 @@ async def balance_lookup(request: Request, api_key: str = Form(...)):
         return RedirectResponse(url=f"/s/{pub.portal_token}", status_code=303)
     return TEMPLATES.TemplateResponse(
         request,
-        "balance_result.html",
+        "pool_signup/balance_result.html",
         {"title": "Balance", "pub": pub},
     )
 

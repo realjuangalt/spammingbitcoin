@@ -87,7 +87,9 @@
     .fee-notice p { margin: 0.35rem 0 0; color: var(--muted); }
   </style>
 </head>
-<body>
+<body class="has-site-masthead">
+  {% include "partials/masthead.html" %}
+
   <main class="shell">
     <h1 class="brand">Spamming Bitcoin</h1>
     <p class="lead">Enroll your Site. You get a <strong style="color:var(--fg)">secret portal link</strong> (bookmark it — no password). Agents unlock your URLs with SHA-256d; we pay your Lightning address via Blink when unpaid hits the minimum.</p>

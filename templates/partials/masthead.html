@@ -1,0 +1,37 @@
+<style>
+  .site-masthead {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.55rem 1rem;
+    padding-top: max(0.55rem, env(safe-area-inset-top));
+    background: rgba(12, 10, 8, 0.94);
+    border-bottom: 1px solid #2a2218;
+    backdrop-filter: blur(10px);
+  }
+  .site-masthead__link {
+    color: #f7931a;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 700;
+    font-size: clamp(0.95rem, 0.85rem + 0.35vw, 1.12rem);
+    letter-spacing: -0.02em;
+    text-decoration: none;
+    line-height: 1.2;
+  }
+  .site-masthead__link:hover { filter: brightness(1.1); }
+  .site-masthead__link:focus-visible {
+    outline: 2px solid #f5e6c8;
+    outline-offset: 3px;
+  }
+  body.has-site-masthead {
+    padding-top: calc(2.85rem + env(safe-area-inset-top)) !important;
+  }
+</style>
+<header class="site-masthead" role="banner">
+  <a class="site-masthead__link" href="{{ site_home() }}">{{ site_domain() }}</a>
+</header>

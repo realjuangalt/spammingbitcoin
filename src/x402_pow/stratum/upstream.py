@@ -99,6 +99,7 @@ class UpstreamStratumClient:
         self._sock: socket.socket | None = None
         self._msg_id = 0
         self._authorized = False
+        self._pending_submits: dict[int, str] = {}
         self._running = False
         self._thread: threading.Thread | None = None
         self._last_error: str | None = None
@@ -113,6 +114,16 @@ class UpstreamStratumClient:
     def latest_job(self) -> UpstreamJob | None:
         with self._lock:
             return self._job
+
+    @property
+    def extranonce1(self) -> str:
+        with self._lock:
+            return self._extranonce1
+
+    @property
+    def extranonce2_size(self) -> int:
+        with self._lock:
+            return self._extranonce2_size
 
     @property
     def status(self) -> dict:
@@ -241,7 +252,19 @@ class UpstreamStratumClient:
                 self._extranonce2_size,
             )
         elif "result" in msg and msg.get("id") is not None:
+            mid = int(msg["id"])
             result = msg["result"]
+            if mid in self._pending_submits:
+                if result is True:
+                    log.info("upstream submit accepted job=%s", self._pending_submits.pop(mid))
+                else:
+                    err = msg.get("error")
+                    log.warning(
+                        "upstream submit rejected job=%s err=%s",
+                        self._pending_submits.pop(mid),
+                        err,
+                    )
+                return
             # subscribe result: [[...], extranonce1, extranonce2_size]
             # Braiins may return extranonce1 as "" (en2-only space).
             if (
@@ -324,29 +347,32 @@ class UpstreamStratumClient:
         upstream_job_id: str,
         extranonce2: str,
         ntime: str,
-        nonce: int,
+        nonce_hex: str,
+        version_bits: int | None = None,
     ) -> bool:
-        """Best-effort mining.submit to upstream. Returns True if accepted."""
+        """Best-effort mining.submit to upstream. Returns True if sent."""
         settings = get_settings()
         user = str(settings.active_upstream()["user"])
-        nonce_hex = f"{nonce & 0xFFFFFFFF:08x}"
-        # Stratum wants nonce as big-endian hex typically
+        params: list = [user, upstream_job_id, extranonce2, ntime, nonce_hex]
+        if version_bits is not None:
+            params.append(f"{version_bits & 0xFFFFFFFF:08x}")
         with self._lock:
             sock = self._sock
             if sock is None or not self._authorized:
                 return False
             mid = self._next_id()
+            self._pending_submits[mid] = upstream_job_id
             try:
                 self._send(
                     {
                         "id": mid,
                         "method": "mining.submit",
-                        "params": [user, upstream_job_id, extranonce2, ntime, nonce_hex],
+                        "params": params,
                     }
                 )
             except OSError:
+                self._pending_submits.pop(mid, None)
                 return False
-        # Non-blocking accept: we don't wait for response in hot path (logged in reader thread)
         return True
 
 

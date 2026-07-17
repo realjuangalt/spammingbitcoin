@@ -13,15 +13,14 @@ from pathlib import Path
 import httpx
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse
-from fastapi.templating import Jinja2Templates
-
 from x402_pow.config import DATA_DIR, ROOT, get_settings
 from x402_pow.facilitator.settle import SettleError, settle_receipt
 from x402_pow.publishers import service as publishers
 from x402_pow.scheme.media_tokens import issue_media_token, load_media_token
 from x402_pow.scheme.payment import encode_payment_required, payment_required
+from x402_pow.web.jinja import make_templates
 
-TEMPLATES = Jinja2Templates(directory=str(ROOT / "templates" / "whitepaper_site"))
+TEMPLATES = make_templates()
 PAPER_DIR = ROOT / "apps" / "whitepaper_site" / "static"
 PAPER_FILE = "bitcoin.pdf"
 CRED_PATH = DATA_DIR / "whitepaper_publisher.json"
@@ -132,7 +131,7 @@ async def index(request: Request):
     pub = publishers.get_by_id(pub_id)
     return TEMPLATES.TemplateResponse(
         request,
-        "index.html",
+        "whitepaper_site/index.html",
         {
             "title": "Bitcoin White Paper — PoW demo",
             "domain": settings.domain,
@@ -155,7 +154,7 @@ async def paper(request: Request):
             receipt = settle_receipt(token, expected_publisher=pub_id, expected_resource=resource)
             return TEMPLATES.TemplateResponse(
                 request,
-                "unlocked.html",
+                "whitepaper_site/unlocked.html",
                 unlocked_context(receipt),
             )
         except SettleError:
@@ -182,7 +181,7 @@ async def paper(request: Request):
     header_b64 = encode_payment_required(body)
     return TEMPLATES.TemplateResponse(
         request,
-        "paywall.html",
+        "whitepaper_site/paywall.html",
         {
             "title": "Payment Required — Bitcoin white paper",
             "payment": body,
@@ -215,7 +214,7 @@ async def unlock(
 
     return TEMPLATES.TemplateResponse(
         request,
-        "unlocked.html",
+        "whitepaper_site/unlocked.html",
         unlocked_context(
             receipt,
             elapsed_sec=elapsed_sec,

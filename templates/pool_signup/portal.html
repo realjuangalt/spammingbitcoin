@@ -65,7 +65,9 @@
     .flash.err { color: #e86a5a; }
   </style>
 </head>
-<body>
+<body class="has-site-masthead">
+  {% include "partials/masthead.html" %}
+
   <main class="shell">
     <h1>{{ pub.display_name }}</h1>
     <p class="sub">Site portal · <code>{{ pub.id }}</code> · bookmark this URL — it is your login</p>

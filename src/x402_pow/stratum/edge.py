@@ -9,7 +9,6 @@ are forwarded to the Upstream pool.
 
 import json
 import logging
-import secrets
 import socket
 import struct
 import threading
@@ -50,6 +49,7 @@ class MinerSession:
     # addr kept only for socket lifecycle — never logged or exported
     addr: tuple
     extranonce1: str = ""
+    extranonce2_size: int = 4
     authorized: bool = False
     worker: str = ""
     site_id: str | None = None
@@ -215,13 +215,14 @@ class StratumEdge:
 
     def _on_subscribe(self, session: MinerSession, mid) -> None:
         job = upstream_client.latest_job
-        # Use upstream extranonce1 so shares can be forwarded as-is.
+        # Match upstream extranonce space so shares can be forwarded as-is.
         if job:
             session.extranonce1 = job.extranonce1
-            en2_size = job.extranonce2_size
+            session.extranonce2_size = job.extranonce2_size
         else:
-            session.extranonce1 = secrets.token_hex(4)
-            en2_size = 4
+            session.extranonce1 = upstream_client.extranonce1
+            session.extranonce2_size = upstream_client.extranonce2_size
+        en2_size = session.extranonce2_size
         # [[notifications], extranonce1, extranonce2_size]
         session.send(
             {
@@ -275,10 +276,12 @@ class StratumEdge:
         for s in sessions:
             if not s.authorized:
                 continue
-            en1_changed = bool(s.extranonce1) and s.extranonce1 != job.extranonce1
+            en1_changed = s.extranonce1 != job.extranonce1
+            en2_changed = s.extranonce2_size != job.extranonce2_size
             s.extranonce1 = job.extranonce1
+            s.extranonce2_size = job.extranonce2_size
             try:
-                if en1_changed:
+                if en1_changed or en2_changed:
                     s.send(
                         {
                             "id": None,
@@ -330,7 +333,12 @@ class StratumEdge:
         try:
             nonce = int(str(nonce_hex), 16)
             en2 = str(extranonce2)
-            en1 = session.extranonce1 or job.extranonce1
+            expected_en2 = job.extranonce2_size * 2
+            if len(en2) < expected_en2:
+                en2 = en2.zfill(expected_en2)
+            elif len(en2) > expected_en2:
+                raise ValueError("extranonce2 too long")
+            en1 = session.extranonce1 if session.extranonce1 == job.extranonce1 else job.extranonce1
             prefix = job.build_prefix76(
                 en2,
                 extranonce1=en1,
@@ -392,7 +400,8 @@ class StratumEdge:
                 upstream_job_id=job.job_id,
                 extranonce2=en2,
                 ntime=str(ntime),
-                nonce=nonce,
+                nonce_hex=str(nonce_hex),
+                version_bits=version_bits if len(params) >= 6 else None,
             )
             forwarded = True
             log.info(

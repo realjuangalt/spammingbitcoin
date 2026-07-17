@@ -5,7 +5,6 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
-from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from starlette.requests import Request
 
@@ -19,12 +18,13 @@ from x402_pow.pool.metrics import (
 )
 from x402_pow.pow.jobs import job_manager
 from x402_pow.publishers import service as publishers
+from x402_pow.web.jinja import make_templates
 
 app = FastAPI(title="x402-pow pool API", version="0.1.0")
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
-TEMPLATES = Jinja2Templates(directory=str(ROOT / "templates" / "pool_api"))
+TEMPLATES = make_templates()
 
 # Miner script only — memes are gated on the demo site, not mirrored here.
 MINE_SCRIPT = ROOT / "src" / "x402_pow" / "scripts" / "mine_share.py"
@@ -182,7 +182,7 @@ def dashboard(request: Request):
     user_disp = (user[:10] + "…" + user[-6:]) if len(user) > 20 else (user or "—")
     return TEMPLATES.TemplateResponse(
         request,
-        "dashboard.html",
+        "pool_api/dashboard.html",
         {
             "generated": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime(snap["generatedAt"])),
             "network": settings.active_network,

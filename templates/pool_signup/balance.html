@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>{{ title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c0a08; --fg: #f5e6c8; --accent: #f7931a; --muted: #9a8b70;
+      --field: #16120e; --line: #2a2218;
+      --pad: clamp(1rem, 3vw, 2.5rem); --shell: min(28rem, 100%);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100dvh;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      background: var(--bg); color: var(--fg);
+      display: flex; justify-content: center;
+      padding: max(var(--pad), env(safe-area-inset-top))
+               max(var(--pad), env(safe-area-inset-right))
+               max(var(--pad), env(safe-area-inset-bottom))
+               max(var(--pad), env(safe-area-inset-left));
+      background-image: radial-gradient(ellipse 80% 50% at 50% -10%, #2a1c0c 0%, transparent 55%);
+    }
+    .shell { width: var(--shell); padding-block: 0.5rem; }
+    h1 { margin: 0 0 1.25rem; color: var(--accent); font-size: clamp(1.55rem, 1.3rem + 1.5vw, 2rem); }
+    form { display: flex; flex-direction: column; gap: 0.75rem; }
+    label { font-size: 0.78rem; color: var(--muted); }
+    input {
+      width: 100%; margin-top: 0.3rem; padding: 0.75rem 0.85rem; min-height: 2.85rem;
+      border: 1px solid var(--line); background: var(--field); color: var(--fg); font: inherit; font-size: 0.95rem;
+    }
+    input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    button {
+      margin-top: 0.35rem; min-height: 3rem; padding: 0.75rem 1rem;
+      background: var(--accent); color: #111; border: 0; font: inherit; font-weight: 700; cursor: pointer; width: 100%;
+    }
+    button:hover { filter: brightness(1.08); }
+    a { color: var(--accent); display: inline-block; margin-top: 1.25rem; font-size: 0.88rem; }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <h1>Site balance</h1>
+    <form method="post" action="/balance">
+      <label>apiKey
+        <input name="api_key" required autocomplete="off" spellcheck="false" />
+      </label>
+      <button type="submit">Lookup</button>
+    </form>
+    <a href="/">← Enroll</a>
+  </main>
+</body>
+</html>

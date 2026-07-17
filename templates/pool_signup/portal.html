@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="referrer" content="no-referrer" />
+  <title>{{ title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c0a08; --fg: #f5e6c8; --accent: #f7931a; --muted: #9a8b70;
+      --field: #16120e; --line: #2a2218; --ok: #3ddc97;
+      --pad: clamp(1rem, 3vw, 2.5rem); --shell: min(40rem, 100%);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100dvh;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      background: var(--bg); color: var(--fg);
+      display: flex; justify-content: center;
+      padding: max(var(--pad), env(safe-area-inset-top))
+               max(var(--pad), env(safe-area-inset-right))
+               max(var(--pad), env(safe-area-inset-bottom))
+               max(var(--pad), env(safe-area-inset-left));
+      background-image: radial-gradient(ellipse 80% 50% at 50% -10%, #2a1c0c 0%, transparent 55%);
+    }
+    .shell { width: var(--shell); }
+    h1 { margin: 0 0 0.35rem; color: var(--accent); font-size: clamp(1.4rem, 1.2rem + 1.2vw, 1.85rem); }
+    .sub { color: var(--muted); font-size: 0.85rem; margin: 0 0 1.25rem; line-height: 1.45; }
+    .warn {
+      border: 1px solid var(--line); background: var(--field); padding: 0.85rem 1rem;
+      font-size: 0.82rem; color: var(--muted); line-height: 1.45; margin-bottom: 1.25rem;
+    }
+    .warn strong { color: var(--accent); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.65rem; margin-bottom: 1.25rem; }
+    .card { background: var(--field); border: 1px solid var(--line); padding: 0.75rem 0.9rem; }
+    .card .label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 0.3rem; }
+    .card .value { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .card .value.ok { color: var(--ok); }
+    label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 0.35rem; }
+    input {
+      width: 100%; padding: 0.7rem 0.8rem; border: 1px solid var(--line); background: var(--field);
+      color: var(--fg); font: inherit; font-size: 0.9rem; margin-bottom: 0.75rem;
+    }
+    button, .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-height: 2.75rem; padding: 0.65rem 1rem; background: var(--accent); color: #111;
+      border: 0; font: inherit; font-weight: 700; cursor: pointer; text-decoration: none; font-size: 0.9rem;
+    }
+    button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--line); margin-left: 0.5rem; }
+    pre {
+      background: var(--field); border: 1px solid var(--line); padding: 0.85rem;
+      overflow: auto; font-size: 0.75rem; line-height: 1.45; margin: 0.5rem 0 1rem;
+    }
+    code { color: var(--accent); word-break: break-all; }
+    a { color: var(--accent); }
+    h2 { margin: 1.5rem 0 0.6rem; font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    th, td { text-align: left; padding: 0.4rem 0.25rem; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-size: 0.65rem; text-transform: uppercase; }
+    .flash { color: var(--ok); font-size: 0.85rem; margin-bottom: 1rem; }
+    .flash.err { color: #e86a5a; }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <h1>{{ pub.display_name }}</h1>
+    <p class="sub">Site portal · <code>{{ pub.id }}</code> · bookmark this URL — it is your login</p>
+
+    <div class="warn">
+      <strong>Keep this link secret.</strong> Anyone with it can see balances and request payouts.
+      Do not post it publicly. This page is <code>noindex</code>.
+    </div>
+
+    {% if flash %}
+    <p class="flash {% if flash_err %}err{% endif %}">{{ flash }}</p>
+    {% endif %}
+
+    <div class="grid">
+      <div class="card"><div class="label">Share units</div><div class="value">{{ pub.share_units }}</div></div>
+      <div class="card"><div class="label">Accrued sats</div><div class="value">{{ pub.tbtc_sats }}</div></div>
+      <div class="card"><div class="label">Paid sats</div><div class="value ok">{{ pub.paid_sats }}</div></div>
+      <div class="card"><div class="label">Unpaid</div><div class="value">{{ unpaid }}</div></div>
+    </div>
+    <p class="sub">Payouts fire when unpaid ≥ <code>{{ min_sats }}</code> sats (via Blink → your Lightning address).</p>
+
+    <h2>Lightning address</h2>
+    <form method="post" action="/s/{{ token }}/ln">
+      <label>Pay to (e.g. you@blink.sv)
+        <input name="lightning_address" value="{{ pub.lightning_address or '' }}" placeholder="name@blink.sv" autocomplete="off" spellcheck="false" />
+      </label>
+      <button type="submit">Save address</button>
+    </form>
+
+    <h2>Request payout</h2>
+    <form method="post" action="/s/{{ token }}/payout" style="margin-bottom:1rem">
+      <button type="submit" {% if unpaid < 1 or not pub.lightning_address %}disabled{% endif %}>Pay unpaid now</button>
+    </form>
+
+    <h2>Server credentials</h2>
+    <pre>portal:   {{ portal_url }}
+apiKey:   {{ pub.api_key }}
+api:      {{ api_base }}
+stratum:  {{ stratum_host }}:{{ stratum_port }}
+user:     {{ pub.stratum_user }}
+pass:     x
+origin:   {{ pub.origin }}
+bits:     {{ pub.access_zero_bits }}</pre>
+
+    <h2>Recent payouts</h2>
+    {% if payouts %}
+    <table>
+      <thead><tr><th>When</th><th>Sats</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for p in payouts %}
+        <tr>
+          <td class="sub">{{ p.createdAt or '—' }}</td>
+          <td>{{ p.amountSats }}</td>
+          <td>{{ p.status }}{% if p.blinkStatus %} · {{ p.blinkStatus }}{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="sub">No payouts yet.</p>
+    {% endif %}
+
+    <p class="sub" style="margin-top:1.5rem"><a href="/#guide">How to gate content</a></p>
+  </main>
+</body>
+</html>

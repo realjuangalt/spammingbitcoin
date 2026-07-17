@@ -1,0 +1,35 @@
+[project]
+name = "x402-pow"
+version = "0.1.0"
+description = "Bitcoin PoW x402 front-pool — agents pay with compute, websites get hashrate"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aiofiles>=25.1.0",
+    "bech32>=1.2.0",
+    "coincurve>=21.0.0",
+    "cryptography>=49.0.0",
+    "fastapi>=0.139.2",
+    "httpx>=0.28.1",
+    "itsdangerous>=2.2.0",
+    "jinja2>=3.1.6",
+    "pydantic-settings>=2.14.2",
+    "pydantic>=2.13.4",
+    "python-multipart>=0.0.32",
+    "sqlalchemy>=2.0.51",
+    "uvicorn[standard]>=0.51.0",
+]
+
+[project.scripts]
+x402-pow-api = "x402_pow.apps.pool_api:main"
+x402-pow-demo = "x402_pow.apps.demo_site:main"
+x402-pow-signup = "x402_pow.apps.pool_signup:main"
+mine-share = "x402_pow.scripts.mine_share:main"
+
+[build-system]
+requires = ["uv_build>=0.11.29,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "x402_pow"
+module-root = "src"

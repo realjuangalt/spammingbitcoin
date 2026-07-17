@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta http-equiv="refresh" content="15" />
+  <title>Pool dashboard — {{ network_title }} — Spamming Bitcoin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c0a08; --fg: #f5e6c8; --accent: #f7931a; --muted: #9a8b70;
+      --panel: #16120e; --line: #2a2218; --ok: #3ddc97; --bad: #e86a5a;
+      --pad: clamp(1rem, 2.5vw, 2rem); --chart: #f7931a; --chart2: #3ddc97;
+      --banner: #2a1c0c; --banner-fg: #f7931a;
+    }
+    body.net-mainnet {
+      --accent: #f5a623;
+      --chart: #f5a623;
+      --banner: #1a1208;
+      --banner-fg: #ffb84d;
+      background-image: radial-gradient(ellipse 70% 40% at 50% 0%, #2a1808 0%, transparent 55%);
+    }
+    body.net-testnet {
+      --accent: #3ddc97;
+      --chart: #3ddc97;
+      --banner: #0c1a14;
+      --banner-fg: #3ddc97;
+      background-image: radial-gradient(ellipse 70% 40% at 50% 0%, #0c2418 0%, transparent 55%);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100dvh;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      background: var(--bg); color: var(--fg);
+      padding: var(--pad);
+      background-image: radial-gradient(ellipse 70% 40% at 50% 0%, #24180c 0%, transparent 55%);
+    }
+    .wrap { max-width: 76rem; margin: 0 auto; }
+    .net-banner {
+      display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem;
+      align-items: baseline; justify-content: space-between;
+      background: var(--banner); border: 1px solid var(--line);
+      padding: 0.75rem 1rem; margin-bottom: 1.25rem;
+    }
+    .net-banner .mode {
+      font-size: clamp(1.05rem, 0.95rem + 0.6vw, 1.35rem);
+      font-weight: 700; color: var(--banner-fg);
+      letter-spacing: 0.04em; text-transform: uppercase;
+    }
+    .net-banner .blurb { color: var(--muted); font-size: 0.82rem; }
+    .net-banner .chain { color: var(--fg); font-size: 0.78rem; }
+    header { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: baseline; margin-bottom: 1.5rem; }
+    h1 { margin: 0; color: var(--accent); font-size: clamp(1.3rem, 1rem + 1.5vw, 1.85rem); }
+    .sub { color: var(--muted); font-size: 0.85rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
+    .card {
+      background: var(--panel); border: 1px solid var(--line); padding: 0.85rem 1rem;
+    }
+    .card .label { font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.35rem; }
+    .card .value { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .card .value.ok { color: var(--ok); }
+    .card .value.bad { color: var(--bad); }
+    .card .hint { margin-top: 0.25rem; font-size: 0.68rem; color: var(--muted); }
+    section { background: var(--panel); border: 1px solid var(--line); padding: 1rem; margin-bottom: 1rem; }
+    h2 { margin: 0 0 0.75rem; font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+    .split { display: grid; gap: 1rem; margin-bottom: 1rem; }
+    @media (min-width: 860px) {
+      .split-2 { grid-template-columns: 1.4fr 1fr; }
+      .split-3 { grid-template-columns: repeat(3, 1fr); }
+    }
+    .split > section { margin-bottom: 0; }
+    .power { margin-bottom: 1.25rem; }
+    .power-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.4rem; font-size: 0.85rem; }
+    .power-track {
+      height: 2.25rem; border: 1px solid var(--line); background: #1a1510;
+      position: relative; overflow: hidden;
+    }
+    .power-fill {
+      height: 100%; background: var(--accent);
+      opacity: 0.85;
+      transition: width 0.4s ease;
+    }
+    .power-scan {
+      position: absolute; inset: 0; pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0,0,0,0.12),
+        rgba(0,0,0,0.12) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+    }
+    .avg-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: 0.65rem; margin-top: 0.85rem; }
+    .avg .label { font-size: 0.65rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+    .avg .value { font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 0.2rem; }
+    .chart-wrap { position: relative; width: 100%; height: 14rem; }
+    .chart-wrap.sm { height: 11rem; }
+    .chart-wrap svg { width: 100%; height: 100%; display: block; }
+    .chart-empty { color: var(--muted); font-size: 0.82rem; padding: 2rem 0; text-align: center; }
+    .legend { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 0.55rem; font-size: 0.72rem; color: var(--muted); }
+    .legend i { display: inline-block; width: 0.7rem; height: 0.7rem; margin-right: 0.35rem; vertical-align: -0.05rem; }
+    .legend .hr { background: var(--chart); }
+    .legend .ag { background: var(--chart2); }
+    .bar-list { display: flex; flex-direction: column; gap: 0.55rem; }
+    .bar-row { display: grid; grid-template-columns: 1.6rem 1fr auto; gap: 0.55rem; align-items: center; font-size: 0.78rem; }
+    .bar-row .rank { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .bar-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bar-track { height: 0.45rem; background: #1a1510; border: 1px solid var(--line); margin-top: 0.25rem; }
+    .bar-fill { height: 100%; background: var(--accent); }
+    .bar-meta { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th, td { text-align: left; padding: 0.45rem 0.35rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; font-size: 0.68rem; letter-spacing: 0.05em; text-transform: uppercase; }
+    td.num { font-variant-numeric: tabular-nums; }
+    .tag { color: var(--ok); }
+    .tag.off { color: var(--bad); }
+    .muted { color: var(--muted); }
+    a { color: var(--accent); }
+    .note { color: var(--muted); font-size: 0.78rem; margin-top: 1rem; line-height: 1.45; }
+    code { color: var(--accent); word-break: break-all; }
+  </style>
+</head>
+<body class="net-{{ network }}">
+  <div class="wrap">
+    <div class="net-banner" role="status">
+      <div>
+        <div class="mode">{{ network_title }}</div>
+        <div class="blurb">{{ network_blurb }}</div>
+      </div>
+      <div class="chain">
+        <code>{{ bitcoin_network }}</code>
+        · metrics scoped to this network only
+        {% if other_share_count %}
+        · <span class="muted">{{ other_share_count }} recent share{{ "s" if other_share_count != 1 else "" }} on {{ other_network }} hidden</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <header>
+      <div>
+        <h1>Pool dashboard</h1>
+        <p class="sub">Spamming Bitcoin · Agents → Pool → Upstream · auto-refresh 15s</p>
+        <p class="sub">Upstream <code>{{ upstream_host }}</code> · user <code>{{ upstream_user }}</code></p>
+      </div>
+      <p class="sub">{{ generated }}</p>
+    </header>
+
+    <!-- parasite-style headline metrics -->
+    <div class="grid">
+      <div class="card">
+        <div class="label">Network</div>
+        <div class="value {% if is_mainnet %}ok{% endif %}">{{ network_title }}</div>
+        <div class="hint">{{ bitcoin_network }}</div>
+      </div>
+      <div class="card">
+        <div class="label">Highest Diff</div>
+        <div class="value">{{ highest_diff }}</div>
+        <div class="hint">best share on {{ network }}</div>
+      </div>
+      <div class="card">
+        <div class="label">Edge Diff</div>
+        <div class="value">{{ edge_diff }}</div>
+        <div class="hint">min needed to accept</div>
+      </div>
+      <div class="card">
+        <div class="label">Pool Uptime</div>
+        <div class="value">{{ uptime }}</div>
+      </div>
+      <div class="card">
+        <div class="label">Accept Rate 1h</div>
+        <div class="value {% if accept_pct >= 70 %}ok{% elif accept_pct < 40 %}bad{% endif %}">{{ accept_pct }}%</div>
+        <div class="hint">{{ shares.accepted1h }} ok / {{ shares.rejected1h }} rej · {{ network }}</div>
+      </div>
+      <div class="card">
+        <div class="label">Live Agents</div>
+        <div class="value">{{ live_count }}</div>
+      </div>
+      <div class="card">
+        <div class="label">Sites</div>
+        <div class="value">{{ site_count }}</div>
+      </div>
+      <div class="card">
+        <div class="label">Forwarded 1h</div>
+        <div class="value">{{ shares.forwarded1h }}</div>
+        <div class="hint">to {{ upstream_host }}</div>
+      </div>
+      <div class="card">
+        <div class="label">Upstream</div>
+        <div class="value {% if upstream_ok %}ok{% else %}bad{% endif %}">{% if upstream_ok %}up{% else %}down{% endif %}</div>
+        <div class="hint">diff {{ upstream_diff if upstream_diff is not none else "—" }} · job {{ upstream_job }}</div>
+      </div>
+      <div class="card">
+        <div class="label">Stratum</div>
+        <div class="value {% if stratum_ok %}ok{% else %}bad{% endif %}">{% if stratum_ok %}:{{ stratum_port }}{% else %}off{% endif %}</div>
+      </div>
+    </div>
+
+    <!-- accept-rate power bar (parasite "Parasite Power") -->
+    <div class="power">
+      <div class="power-head">
+        <span>Share Accept Power</span>
+        <span>{{ accept_pct }}%</span>
+      </div>
+      <div class="power-track" aria-hidden="true">
+        <div class="power-fill" style="width: {% if accept_pct > 100 %}100{% else %}{{ accept_pct }}{% endif %}%"></div>
+        <div class="power-scan"></div>
+      </div>
+    </div>
+
+    <section>
+      <h2>Pool Hashrate · {{ network_title }}</h2>
+      <div class="value" style="font-size:1.75rem;font-weight:700;font-variant-numeric:tabular-nums;margin-bottom:0.35rem">{{ hr_1m }}</div>
+      <p class="muted" style="margin:0 0 0.5rem;font-size:0.78rem">Instant (1m) · {{ bitcoin_network }} shares only</p>
+      <div class="avg-row">
+        <div class="avg"><div class="label">1m</div><div class="value">{{ hr_1m }}</div></div>
+        <div class="avg"><div class="label">5m</div><div class="value">{{ hr_5m }}</div></div>
+        <div class="avg"><div class="label">15m</div><div class="value">{{ hr_15m }}</div></div>
+        <div class="avg"><div class="label">1h</div><div class="value">{{ hr_1h }}</div></div>
+        <div class="avg"><div class="label">6h</div><div class="value">{{ hr_6h }}</div></div>
+        <div class="avg"><div class="label">1d</div><div class="value">{{ hr_1d }}</div></div>
+      </div>
+    </section>
+
+    <div class="split split-2">
+      <section>
+        <h2>Historic Hashrate · last 1h</h2>
+        <div id="hrChart" class="chart-wrap"></div>
+        <div class="legend"><span><i class="hr"></i>Hashrate (H/s)</span></div>
+      </section>
+      <section>
+        <h2>Agents &amp; Sites · last 1h</h2>
+        <div id="agentChart" class="chart-wrap sm"></div>
+        <div class="legend">
+          <span><i class="hr"></i>Agents</span>
+          <span><i class="ag"></i>Sites</span>
+        </div>
+      </section>
+    </div>
+
+    <div class="split split-2">
+      <section>
+        <h2>Leaderboard</h2>
+        {% if leaderboard %}
+        <div class="bar-list">
+          {% set top_hr = leaderboard[0].hashrate1h if leaderboard[0].hashrate1h else 1 %}
+          {% for row in leaderboard[:10] %}
+          <div class="bar-row">
+            <div class="rank">{{ row.rank }}</div>
+            <div>
+              <div class="name"><code>{{ row.worker }}</code></div>
+              <div class="bar-track"><div class="bar-fill" style="width: {{ (100 * row.hashrate1h / top_hr)|round(1) }}%"></div></div>
+            </div>
+            <div class="bar-meta">
+              {{ row.hashrate_fmt }}<br>
+              <span class="muted">best {{ row.best_diff_fmt }} · {{ row.accepted }} ok</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="muted">No Agent shares in the last hour.</p>
+        {% endif %}
+      </section>
+      <section>
+        <h2>Top Difficulties</h2>
+        {% if top_diffs %}
+        <table>
+          <thead><tr><th>Age</th><th>Worker</th><th>Diff</th><th>Result</th></tr></thead>
+          <tbody>
+          {% for d in top_diffs[:10] %}
+            <tr>
+              <td class="num muted">{{ d.ageSec }}s</td>
+              <td><code>{{ d.worker }}</code></td>
+              <td class="num">{{ d.diff_fmt }}</td>
+              <td class="tag">{% if d.forwarded %}fwd{% else %}ok{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="muted">Waiting for accepted shares with hash difficulty…</p>
+        {% endif %}
+      </section>
+    </div>
+
+    <section>
+      <h2>Live Agents (Stratum)</h2>
+      {% if live_miners %}
+      <table>
+        <thead><tr><th>Worker</th><th>Site</th><th>Accepted</th><th>Rejected</th><th>Diff</th><th>Connected</th></tr></thead>
+        <tbody>
+        {% for m in live_miners %}
+          <tr>
+            <td><code>{{ m.worker }}</code></td>
+            <td class="muted">{{ m.siteId or "—" }}</td>
+            <td class="num tag">{{ m.accepted }}</td>
+            <td class="num">{{ m.rejected }}</td>
+            <td class="num">{{ m.difficulty }}</td>
+            <td class="num muted">{{ m.connectedSec }}s</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="muted">No Agents connected. Point Bitaxe at <code>pool.spammingbitcoin.com:3333</code>.</p>
+      {% endif %}
+    </section>
+
+    <section>
+      <h2>Sites (ledger)</h2>
+      <table>
+        <thead><tr><th>Site</th><th>Name</th><th>Share units</th><th>{{ asset_label }}</th></tr></thead>
+        <tbody>
+        {% for s in sites_ledger %}
+          <tr>
+            <td><code>{{ s.siteId }}</code></td>
+            <td>{{ s.name }}</td>
+            <td class="num">{{ s.shareUnits }}</td>
+            <td class="num muted">{{ s.tbtcSats }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4" class="muted">No Sites enrolled yet.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Workers (last hour)</h2>
+      <table>
+        <thead><tr><th>Worker</th><th>Accepted</th><th>Rejected</th><th>~Hashrate 1h</th><th>Best Diff</th></tr></thead>
+        <tbody>
+        {% for w in workers %}
+          <tr>
+            <td><code>{{ w.worker }}</code></td>
+            <td class="num tag">{{ w.accepted }}</td>
+            <td class="num">{{ w.rejected }}</td>
+            <td class="num">{{ w.hashrate_fmt }}</td>
+            <td class="num">{{ w.best_diff_fmt }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="muted">No shares in the last hour.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Recent shares</h2>
+      <table>
+        <thead><tr><th>Age</th><th>Source</th><th>Worker</th><th>Site</th><th>Diff</th><th>Hash Diff</th><th>Result</th></tr></thead>
+        <tbody>
+        {% for r in recent %}
+          <tr>
+            <td class="num muted">{{ r.ageSec }}s</td>
+            <td>{{ r.source }}</td>
+            <td><code>{{ r.worker }}</code></td>
+            <td class="muted">{{ r.siteId or "—" }}</td>
+            <td class="num">{{ "%.4g"|format(r.difficulty) }}</td>
+            <td class="num muted">
+              {% if r.hashDifficulty %}{{ "%.4g"|format(r.hashDifficulty) }}{% else %}—{% endif %}
+            </td>
+            <td class="{% if r.accepted %}tag{% else %}tag off{% endif %}">
+              {% if r.accepted %}ok{% if r.forwarded %} · fwd{% endif %}{% else %}rej{% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7" class="muted">Waiting for shares…</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <p class="note">
+      Privacy: this dashboard does <strong>not</strong> log IP addresses — only worker names, Site ids, and share stats.
+      Active mode: <strong>{{ network_title }}</strong> (<code>{{ bitcoin_network }}</code>) via Upstream <code>{{ upstream_host }}</code>.
+      Flip <code>NETWORK</code> in <code>.env</code> and restart the API to switch; hashrate/shares/charts are filtered per network.
+      Data formats inspired by <a href="https://parasite.space" rel="noopener">parasite.space</a>.
+      JSON: <a href="/v1/stats">/v1/stats</a>
+      · Health: <a href="/health">/health</a>
+      · Demo: <a href="https://demo.spammingbitcoin.com">demo.spammingbitcoin.com</a>
+      {% if github_repo %} · <a href="{{ github_repo }}" rel="noopener" target="_blank">GitHub</a>{% endif %}
+    </p>
+  </div>
+
+  <script id="history-data" type="application/json">{{ history_json | tojson }}</script>
+  <script>
+  (function () {
+    var history = [];
+    try {
+      history = JSON.parse(document.getElementById("history-data").textContent || "[]");
+    } catch (e) { history = []; }
+
+    function fmtHr(v) {
+      if (v >= 1e15) return (v / 1e15).toFixed(2) + " PH/s";
+      if (v >= 1e12) return (v / 1e12).toFixed(2) + " TH/s";
+      if (v >= 1e9) return (v / 1e9).toFixed(2) + " GH/s";
+      if (v >= 1e6) return (v / 1e6).toFixed(2) + " MH/s";
+      if (v >= 1e3) return (v / 1e3).toFixed(2) + " kH/s";
+      return Math.round(v) + " H/s";
+    }
+
+    function empty(el, msg) {
+      el.innerHTML = '<div class="chart-empty">' + msg + '</div>';
+    }
+
+    function areaChart(el, series, opts) {
+      opts = opts || {};
+      var w = el.clientWidth || 640;
+      var h = el.clientHeight || 220;
+      var pad = { t: 12, r: 12, b: 28, l: 52 };
+      var iw = w - pad.l - pad.r;
+      var ih = h - pad.t - pad.b;
+      if (!series.length) { empty(el, opts.empty || "No data yet"); return; }
+
+      var maxY = 0;
+      for (var i = 0; i < series.length; i++) {
+        if (series[i].y > maxY) maxY = series[i].y;
+      }
+      if (maxY <= 0) maxY = 1;
+
+      function x(i) { return pad.l + (series.length === 1 ? iw / 2 : (i / (series.length - 1)) * iw); }
+      function y(v) { return pad.t + ih - (v / maxY) * ih; }
+
+      var line = "";
+      var area = "";
+      for (var j = 0; j < series.length; j++) {
+        var px = x(j), py = y(series[j].y);
+        line += (j ? " L " : "M ") + px.toFixed(1) + " " + py.toFixed(1);
+        if (j === 0) area = "M " + px.toFixed(1) + " " + y(0).toFixed(1) + " L " + px.toFixed(1) + " " + py.toFixed(1);
+        else area += " L " + px.toFixed(1) + " " + py.toFixed(1);
+      }
+      area += " L " + x(series.length - 1).toFixed(1) + " " + y(0).toFixed(1) + " Z";
+
+      var yTicks = [0, 0.5, 1].map(function (f) {
+        var v = maxY * f;
+        var yy = y(v);
+        return '<line x1="' + pad.l + '" x2="' + (w - pad.r) + '" y1="' + yy + '" y2="' + yy + '" stroke="#2a2218" />' +
+          '<text x="' + (pad.l - 6) + '" y="' + (yy + 3) + '" text-anchor="end" fill="#9a8b70" font-size="10">' +
+          (opts.yFmt ? opts.yFmt(v) : Math.round(v)) + '</text>';
+      }).join("");
+
+      var first = series[0], last = series[series.length - 1];
+      var xLabels =
+        '<text x="' + pad.l + '" y="' + (h - 8) + '" fill="#9a8b70" font-size="10">' +
+        (opts.xFmt ? opts.xFmt(first.x) : "") + '</text>' +
+        '<text x="' + (w - pad.r) + '" y="' + (h - 8) + '" text-anchor="end" fill="#9a8b70" font-size="10">' +
+        (opts.xFmt ? opts.xFmt(last.x) : "") + '</text>';
+
+      var color = opts.color || "#f7931a";
+      el.innerHTML =
+        '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" role="img" aria-label="' + (opts.title || "chart") + '">' +
+        yTicks +
+        '<path d="' + area + '" fill="' + color + '" fill-opacity="0.18"></path>' +
+        '<path d="' + line + '" fill="none" stroke="' + color + '" stroke-width="2"></path>' +
+        xLabels +
+        '</svg>';
+    }
+
+    function multiLine(el, seriesList, opts) {
+      opts = opts || {};
+      var w = el.clientWidth || 640;
+      var h = el.clientHeight || 180;
+      var pad = { t: 12, r: 12, b: 28, l: 36 };
+      var iw = w - pad.l - pad.r;
+      var ih = h - pad.t - pad.b;
+      var n = (seriesList[0] && seriesList[0].length) || 0;
+      if (!n) { empty(el, opts.empty || "No data yet"); return; }
+
+      var maxY = 1;
+      seriesList.forEach(function (s) {
+        s.forEach(function (p) { if (p.y > maxY) maxY = p.y; });
+      });
+
+      function x(i) { return pad.l + (n === 1 ? iw / 2 : (i / (n - 1)) * iw); }
+      function y(v) { return pad.t + ih - (v / maxY) * ih; }
+
+      var paths = seriesList.map(function (s, si) {
+        var d = "";
+        for (var i = 0; i < s.length; i++) {
+          d += (i ? " L " : "M ") + x(i).toFixed(1) + " " + y(s[i].y).toFixed(1);
+        }
+        var color = (opts.colors && opts.colors[si]) || "#f7931a";
+        return '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="2"></path>';
+      }).join("");
+
+      var grid = [0, 0.5, 1].map(function (f) {
+        var yy = y(maxY * f);
+        return '<line x1="' + pad.l + '" x2="' + (w - pad.r) + '" y1="' + yy + '" y2="' + yy + '" stroke="#2a2218" />' +
+          '<text x="' + (pad.l - 6) + '" y="' + (yy + 3) + '" text-anchor="end" fill="#9a8b70" font-size="10">' +
+          Math.round(maxY * f) + '</text>';
+      }).join("");
+
+      el.innerHTML =
+        '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">' +
+        grid + paths + '</svg>';
+    }
+
+    function clock(ts) {
+      var d = new Date(ts * 1000);
+      return d.toISOString().slice(11, 16) + "Z";
+    }
+
+    var hrSeries = history.map(function (b) {
+      return { x: b.timestamp, y: b.hashrate || 0 };
+    });
+    var agentSeries = history.map(function (b) {
+      return { x: b.timestamp, y: b.agents || 0 };
+    });
+    var siteSeries = history.map(function (b) {
+      return { x: b.timestamp, y: b.sites || 0 };
+    });
+
+    var hrEl = document.getElementById("hrChart");
+    var agEl = document.getElementById("agentChart");
+    var hasHr = hrSeries.some(function (p) { return p.y > 0; });
+    var accent = getComputedStyle(document.body).getPropertyValue("--chart").trim() || "#f7931a";
+    var accent2 = getComputedStyle(document.body).getPropertyValue("--chart2").trim() || "#3ddc97";
+
+    areaChart(hrEl, hasHr ? hrSeries : [], {
+      title: "Historic hashrate",
+      empty: "Mining to fill the hashrate curve…",
+      yFmt: fmtHr,
+      xFmt: clock,
+      color: accent
+    });
+    multiLine(agEl, [agentSeries, siteSeries], {
+      empty: "No agent/site activity in window",
+      colors: [accent, accent2]
+    });
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>{{ title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c0a08; --fg: #f5e6c8; --accent: #f7931a; --muted: #9a8b70;
+      --field: #16120e; --line: #2a2218;
+      --pad: clamp(1rem, 3vw, 2.5rem); --shell: min(40rem, 100%);
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+    body {
+      margin: 0; min-height: 100dvh;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      background: var(--bg); color: var(--fg);
+      display: flex; justify-content: center;
+      padding: max(var(--pad), env(safe-area-inset-top))
+               max(var(--pad), env(safe-area-inset-right))
+               max(var(--pad), env(safe-area-inset-bottom))
+               max(var(--pad), env(safe-area-inset-left));
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -10%, #2a1c0c 0%, transparent 55%),
+        radial-gradient(ellipse 60% 40% at 80% 100%, #1a1208 0%, transparent 50%);
+    }
+    .shell { width: var(--shell); padding-block: clamp(0.5rem, 3vh, 1.5rem); }
+    .brand {
+      margin: 0 0 0.5rem; color: var(--accent); font-weight: 700;
+      font-size: clamp(1.75rem, 1.4rem + 1.8vw, 2.5rem);
+      letter-spacing: -0.03em; line-height: 1.1;
+    }
+    .lead { margin: 0 0 1.5rem; color: var(--muted); line-height: 1.55; font-size: 0.95rem; }
+    form { display: flex; flex-direction: column; gap: 0.85rem; }
+    label { font-size: 0.78rem; color: var(--muted); letter-spacing: 0.02em; }
+    input {
+      width: 100%; margin-top: 0.3rem; padding: 0.75rem 0.85rem; min-height: 2.85rem;
+      border: 1px solid var(--line); background: var(--field); color: var(--fg);
+      font: inherit; font-size: 0.95rem;
+    }
+    input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    button {
+      margin-top: 0.35rem; min-height: 3rem; padding: 0.75rem 1rem;
+      background: var(--accent); color: #111; border: 0; font: inherit; font-weight: 700;
+      cursor: pointer; width: 100%;
+    }
+    button:hover { filter: brightness(1.08); }
+    button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+    nav.links {
+      display: flex; flex-wrap: wrap; gap: 0.65rem 1.15rem; margin: 1.5rem 0 0;
+      padding-top: 1.15rem; border-top: 1px solid var(--line); font-size: 0.82rem;
+    }
+    nav.links a, .guide a, footer a { color: var(--muted); text-decoration: none; border-bottom: 1px solid transparent; }
+    nav.links a:hover, .guide a:hover, footer a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+    .guide {
+      margin-top: 2.75rem; padding-top: 2rem; border-top: 1px solid var(--line);
+    }
+    .guide h2 {
+      margin: 0 0 0.75rem; color: var(--accent); font-size: 1.05rem;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .guide h3 {
+      margin: 1.75rem 0 0.55rem; color: var(--fg); font-size: 0.92rem; font-weight: 600;
+    }
+    .guide p, .guide li { color: var(--muted); line-height: 1.55; font-size: 0.88rem; margin: 0 0 0.65rem; }
+    .guide ol, .guide ul { margin: 0 0 0.75rem; padding-left: 1.2rem; }
+    .guide code { color: var(--accent); word-break: break-all; font-size: 0.86em; }
+    .guide pre {
+      margin: 0.4rem 0 0.9rem; padding: 0.85rem 0.95rem;
+      background: var(--field); border: 1px solid var(--line);
+      overflow: auto; font-size: 0.72rem; line-height: 1.45; color: var(--fg);
+    }
+    .guide table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin: 0.5rem 0 1rem; }
+    .guide th, .guide td { text-align: left; padding: 0.4rem 0.3rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+    .guide th { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    footer { margin-top: 2rem; font-size: 0.78rem; color: var(--muted); }
+    .fee-notice {
+      margin: 0 0 1.35rem; padding: 0.95rem 1rem;
+      border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+      background: var(--field); line-height: 1.5; font-size: 0.88rem;
+    }
+    .fee-notice strong { color: var(--accent); font-size: 1.05rem; }
+    .fee-notice p { margin: 0.35rem 0 0; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <h1 class="brand">Spamming Bitcoin</h1>
+    <p class="lead">Enroll your Site. You get a <strong style="color:var(--fg)">secret portal link</strong> (bookmark it — no password). Agents unlock your URLs with SHA-256d; we pay your Lightning address via Blink when unpaid hits the minimum.</p>
+
+    <div class="fee-notice" role="note">
+      <strong>Pool fee: {{ pool_fee_percent }}%</strong>
+      <p>
+        Spamming Bitcoin is not a traditional mining pool. We take a
+        <strong style="color:var(--fg)">{{ pool_fee_percent }}% commission</strong> on hashrate your Site earns through the Pool
+        (access-gate PoW and Stratum). You receive <strong style="color:var(--fg)">{{ site_payout_percent }}%</strong> of gross earnings before Lightning payout.
+        By enrolling you agree to this fee.
+      </p>
+    </div>
+
+    <form method="post" action="/enroll">
+      <label>Site origin (https://…)
+        <input name="origin" required placeholder="https://cool-memes.example" autocomplete="url" />
+      </label>
+      <label>Display name
+        <input name="display_name" required placeholder="Cool Memes" autocomplete="organization" />
+      </label>
+      <label>Lightning address (payouts)
+        <input name="lightning_address" placeholder="yoursite@blink.sv" autocomplete="off" spellcheck="false" />
+      </label>
+      <label>Access zero-bits (≈3–6s in-browser → 17–18)
+        <input name="access_zero_bits" type="number" value="{{ default_bits }}" min="12" max="32" inputmode="numeric" />
+      </label>
+      <label>Contact (optional)
+        <input name="contact" type="email" autocomplete="email" />
+      </label>
+      <button type="submit">Enroll Site</button>
+    </form>
+
+    <nav class="links" aria-label="Pool">
+      <a href="#guide">How to gate content</a>
+      <a href="/balance">Open portal / balance</a>
+      <a href="https://api.{{ domain }}/dashboard">Dashboard</a>
+      <a href="https://demo.{{ domain }}">Demo</a>
+      <a href="/docs.md">docs.md</a>
+      {% if github_repo %}<a href="{{ github_repo }}" rel="noopener" target="_blank">GitHub</a>{% endif %}
+    </nav>
+
+    <section class="guide" id="guide">
+      <h2>How to gate content</h2>
+      <p>You are a <strong style="color:var(--fg)">Site</strong>. After enroll you get a <strong style="color:var(--fg)">secret portal link</strong> (bookmark it — no password). Agents unlock your URLs with SHA-256d; you accrue sats and we pay your Lightning address via Blink when unpaid ≥ <code>{{ min_sats }}</code> sats.</p>
+      <p><strong style="color:var(--fg)">Fees:</strong> the Pool keeps <strong style="color:var(--fg)">{{ pool_fee_percent }}%</strong> of gross hashrate earnings; your Site receives <strong style="color:var(--fg)">{{ site_payout_percent }}%</strong>. This is disclosed before you enroll — not a standard ~1–2% mining-pool take.</p>
+
+      <h3>1 · Enroll via API (no UI)</h3>
+<pre>curl -sS {{ api_base }}/v1/publishers \
+  -H 'content-type: application/json' \
+  -d '{"origin":"https://your-site.example","display_name":"Your Site","access_zero_bits":18,"lightning_address":"you@blink.sv"}'</pre>
+      <p>Response includes <code>portalUrl</code> (save it) and <code>apiKey</code> for your server.</p>
+      <h3>2 · Flow</h3>
+      <table>
+        <thead><tr><th>#</th><th>Who</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Agent</td><td><code>GET</code> your gated URL</td></tr>
+          <tr><td>2</td><td>Site</td><td>Create job → respond <strong style="color:var(--fg)">402</strong> + <code>PAYMENT-REQUIRED</code></td></tr>
+          <tr><td>3</td><td>Agent</td><td>Mine → <code>receiptToken</code></td></tr>
+          <tr><td>4</td><td>Agent</td><td>Retry with <code>PAYMENT-SIGNATURE</code></td></tr>
+          <tr><td>5</td><td>Site</td><td>Settle with Pool → serve content</td></tr>
+        </tbody>
+      </table>
+      <p>Bind every job to the same absolute <code>resource</code> URL for create / mine / settle.</p>
+
+      <h3>3 · Create a job</h3>
+<pre>curl -sS {{ api_base }}/v1/jobs \
+  -H 'content-type: application/json' \
+  -d '{"publisher_id":"pub_…","resource":"https://your-site.example/premium","access_zero_bits":18}'</pre>
+
+      <h3>4 · Return 402</h3>
+      <p>Header <code>PAYMENT-REQUIRED</code> = base64url(JSON). Put job fields in <code>accepts[0].extra</code>, set <code>facilitator</code> to <code>{{ api_base }}</code>, and point <code>minerHint</code> at:</p>
+      <p><code>{{ api_base }}/static/mine_share.py</code></p>
+<pre>python3 /tmp/mine_share.py --api {{ api_base }} \
+  --job-id JOB --prefix76 HEX --target 0x… \
+  --publisher pub_… --resource https://your-site.example/premium \
+  --receipt-out -</pre>
+
+      <h3>5 · Settle / unlock</h3>
+<pre>curl -sS {{ api_base }}/v1/settle \
+  -H "authorization: Bearer sk_…" \
+  -H 'content-type: application/json' \
+  -d '{"receipt_token":"…","publisher_id":"pub_…","resource":"https://your-site.example/premium"}'</pre>
+      <p>On <code>200</code>, serve the gated content. Reference: <a href="https://demo.{{ domain }}/meme">demo vault</a>.</p>
+
+      <h3>6 · Balance & payouts</h3>
+<pre>curl -sS {{ api_base }}/v1/publishers/me -H "authorization: Bearer sk_…"</pre>
+      <p>Or open your secret <code>/s/…</code> portal. Unpaid sats pay out to your Lightning address (Blink) at ≥ <code>{{ min_sats }}</code> sats.</p>
+
+      <h3>7 · Security</h3>
+      <ul>
+        <li>Treat the portal URL like a password — don’t publish it.</li>
+        <li>Keep <code>apiKey</code> on the server only (settle / jobs).</li>
+        <li>Same <code>resource</code> string for job, mine, and settle.</li>
+        <li>Prefer Pool settle so receipts are single-use.</li>
+      </ul>
+    </section>
+    <footer>
+      Full copy for Agents: <a href="/docs.md">/docs.md</a>
+    </footer>
+  </main>
+</body>
+</html>

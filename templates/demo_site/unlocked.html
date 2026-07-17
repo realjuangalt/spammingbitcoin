@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>{{ title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c0a08;
+      --fg: #f5e6c8;
+      --accent: #f7931a;
+      --muted: #9a8b70;
+      --panel: #16120e;
+      --line: #2a2218;
+      --ok: #3ddc97;
+      --pad: clamp(1rem, 2.5vw, 2rem);
+      --shell: min(48rem, 100%);
+      --art: min(92vw, 44rem);
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      background: var(--bg);
+      color: var(--fg);
+      display: flex;
+      justify-content: center;
+      padding: max(var(--pad), env(safe-area-inset-top))
+               max(var(--pad), env(safe-area-inset-right))
+               max(var(--pad), env(safe-area-inset-bottom))
+               max(var(--pad), env(safe-area-inset-left));
+      background-image:
+        radial-gradient(ellipse 70% 40% at 50% 0%, #24180c 0%, transparent 55%);
+    }
+    .shell {
+      width: var(--shell);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 0.85rem;
+      padding-block: clamp(0.5rem, 3vh, 2rem);
+    }
+    .brand {
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      text-decoration: none;
+      align-self: flex-start;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(1.5rem, 1.2rem + 2vw, 2.25rem);
+      color: var(--accent);
+      letter-spacing: -0.02em;
+    }
+    h2 {
+      margin: 0 0 0.65rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      text-align: left;
+    }
+    .frame {
+      width: 100%;
+      max-width: var(--art);
+      margin: 0.35rem 0;
+      border: 2px solid var(--accent);
+      background: #100d0a;
+      line-height: 0;
+    }
+    .frame img {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: min(70dvh, 820px);
+      object-fit: contain;
+      background: #100d0a;
+    }
+    .meta {
+      color: var(--muted);
+      max-width: 40rem;
+      line-height: 1.5;
+      font-size: clamp(0.88rem, 0.82rem + 0.25vw, 1rem);
+    }
+    .meta strong { color: var(--fg); }
+    a { color: var(--accent); }
+    a:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+    .nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.25rem;
+      justify-content: center;
+      margin-top: 0.25rem;
+      font-size: 0.92rem;
+    }
+
+    .cta {
+      width: 100%;
+      max-width: var(--art);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      justify-content: center;
+      margin-top: 0.35rem;
+    }
+    .cta .primary {
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 1rem;
+      min-height: 3rem;
+      padding: 0.75rem 1.25rem;
+      border: 0;
+      cursor: pointer;
+      width: 100%;
+      max-width: 20rem;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      background: var(--accent);
+      color: #111;
+    }
+    .cta .primary:hover { filter: brightness(1.08); }
+    .cta .primary:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+
+    .panel {
+      width: 100%;
+      max-width: var(--art);
+      text-align: left;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      padding: clamp(1rem, 2.5vw, 1.35rem);
+      margin-top: 0.5rem;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.65rem;
+    }
+    @media (min-width: 560px) {
+      .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+    .stat {
+      min-width: 0;
+      padding: 0.55rem 0.65rem;
+      background: #100d0a;
+      border: 1px solid var(--line);
+    }
+    .stat .label {
+      display: block;
+      font-size: 0.68rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+    .stat .value {
+      font-size: clamp(0.9rem, 0.82rem + 0.35vw, 1.05rem);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      word-break: break-all;
+    }
+    .stat .value.ok { color: var(--ok); }
+
+    .hash {
+      margin-top: 0.85rem;
+      padding: 0.65rem 0.75rem;
+      background: #100d0a;
+      border: 1px solid var(--line);
+      font-size: clamp(0.68rem, 0.62rem + 0.25vw, 0.78rem);
+      color: var(--muted);
+      word-break: break-all;
+      line-height: 1.45;
+    }
+    .hash strong { color: var(--fg); display: block; margin-bottom: 0.25rem; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
+
+    .idea {
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: clamp(0.88rem, 0.82rem + 0.2vw, 0.98rem);
+    }
+    .idea p { margin: 0 0 0.75rem; }
+    .idea p:last-child { margin-bottom: 0; }
+    .idea strong { color: var(--fg); font-weight: 600; }
+
+    @media (min-width: 1400px) {
+      :root {
+        --shell: min(56rem, 58vw);
+        --art: min(52vw, 52rem);
+      }
+    }
+    @media (min-width: 2000px) {
+      :root {
+        --shell: min(60rem, 42vw);
+        --art: min(36vw, 56rem);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <a class="brand" href="/">Spamming Bitcoin</a>
+    <h1>Proof accepted</h1>
+    {% if meme and media_url %}
+      <div class="frame">
+        <img src="{{ media_url }}" alt="{{ meme.title }}" loading="eager" />
+      </div>
+      <p class="meta">
+        <strong>{{ meme.title }}</strong>
+        {% if meme.credit %}<br />{{ meme.credit }}{% endif %}
+        {% if meme.sourceUrl %}<br /><a href="{{ meme.sourceUrl }}" rel="noopener" target="_blank">source</a>{% endif %}
+      </p>
+      <div class="cta">
+        <a class="primary" href="/meme">New meme</a>
+      </div>
+      <p class="meta" style="margin-top:0;font-size:0.78rem">Mine another share to unlock the next one.</p>
+    {% else %}
+      <p class="meta">Meme gallery is empty — drop images into <code>apps/demo_site/static/memes/</code> and update <code>manifest.json</code>.</p>
+    {% endif %}
+
+    {% if solution %}
+    <section class="panel" aria-labelledby="solHeading">
+      <h2 id="solHeading">Your solution</h2>
+      <div class="stats">
+        <div class="stat">
+          <span class="label">Nonce</span>
+          <span class="value">{{ solution.nonce }}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Zero-bits</span>
+          <span class="value ok">{{ solution.achieved_zero_bits }} <span style="color:var(--muted);font-weight:400">/ {{ solution.target_zero_bits }}</span></span>
+        </div>
+        <div class="stat">
+          <span class="label">Elapsed</span>
+          <span class="value">{% if solution.elapsed_sec is not none %}{{ "%.2f"|format(solution.elapsed_sec) }}s{% else %}—{% endif %}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Hashrate</span>
+          <span class="value">{% if solution.hashrate is not none %}{{ "{:,.0f}".format(solution.hashrate) }} H/s{% else %}—{% endif %}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Hashes tried</span>
+          <span class="value">{% if solution.hashes is not none %}{{ "{:,}".format(solution.hashes) }}{% else %}—{% endif %}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Work source</span>
+          <span class="value" style="font-size:0.85rem">{{ solution.source }}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Job</span>
+          <span class="value" style="font-size:0.75rem">{{ solution.job_id }}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Receipt</span>
+          <span class="value" style="font-size:0.72rem">{{ solution.receipt_id }}</span>
+        </div>
+      </div>
+      <div class="hash">
+        <strong>SHA-256d (LE hex)</strong>
+        {{ solution.digest }}
+      </div>
+    </section>
+
+    <section class="panel idea" aria-labelledby="ideaHeading">
+      <h2 id="ideaHeading">What just happened</h2>
+      <p>
+        You paid for this meme with <strong>compute</strong>, not dollars.
+        Your machine ground SHA-256d nonces on a real Bitcoin <strong>Testnet4</strong> pool job
+        until the hash beat ~{{ solution.target_zero_bits }} leading zero bits — the site’s access difficulty.
+      </p>
+      <p>
+        That’s the same family of work Bitcoin miners do, just an easier “share” target so it finishes in seconds.
+        The pool signed a one-time receipt; the vault checked it and unlocked this image.
+      </p>
+      <p>
+        <strong>Spamming Bitcoin</strong> is an x402 experiment: websites gate content behind proof of work,
+        agents (and humans) unlock by mining, and hashrate can accrue to publishers instead of charging USDC.
+      </p>
+    </section>
+    {% endif %}
+
+    <nav class="nav" aria-label="Next">
+      <a href="https://phneep.com/propaganda/" rel="noopener" target="_blank">Phneep propaganda</a>
+      <a href="https://signup.spammingbitcoin.com">Pool signup</a>
+    </nav>
+  </main>
+</body>
+</html>

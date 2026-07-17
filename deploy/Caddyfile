@@ -1,0 +1,39 @@
+# Spamming Bitcoin — reverse proxy + automatic HTTPS
+# Apps: API :8100  memes(apex) :8101  signup :8102  whitepaper(demo) :8103
+
+{
+	email admin@spammingbitcoin.com
+}
+
+spammingbitcoin.com, www.spammingbitcoin.com {
+	encode gzip
+	reverse_proxy 127.0.0.1:8101
+}
+
+# Separate enrolled Site — Bitcoin white paper behind PoW
+demo.spammingbitcoin.com {
+	encode gzip
+	reverse_proxy 127.0.0.1:8103
+}
+
+signup.spammingbitcoin.com {
+	encode gzip
+	reverse_proxy 127.0.0.1:8102
+}
+
+api.spammingbitcoin.com {
+	encode gzip
+	reverse_proxy 127.0.0.1:8100
+}
+
+# Public pool stats dashboard (no IP logging). Lock down later with basic auth.
+stats.spammingbitcoin.com {
+	encode gzip
+	reverse_proxy 127.0.0.1:8100
+}
+
+# Stratum TLS edge later — for now pool hostname serves signup too
+pool.spammingbitcoin.com {
+	encode gzip
+	reverse_proxy 127.0.0.1:8102
+}

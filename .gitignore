@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets & runtime data (never commit)
+.env
+data/
+
+# Local logs
+*.log
+/tmp/

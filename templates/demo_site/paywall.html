@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>{{ title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c0a08;
+      --fg: #f5e6c8;
+      --accent: #f7931a;
+      --muted: #9a8b70;
+      --panel: #16120e;
+      --line: #2a2218;
+      --ok: #3ddc97;
+      --pad: clamp(1rem, 2.5vw, 2rem);
+      --shell: min(40rem, 100%);
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      background: var(--bg);
+      color: var(--fg);
+      padding: max(var(--pad), env(safe-area-inset-top))
+               max(var(--pad), env(safe-area-inset-right))
+               max(var(--pad), env(safe-area-inset-bottom))
+               max(var(--pad), env(safe-area-inset-left));
+      background-image:
+        radial-gradient(ellipse 70% 40% at 50% 0%, #24180c 0%, transparent 55%);
+      display: flex;
+      justify-content: center;
+    }
+    .shell {
+      width: var(--shell);
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      padding-block: clamp(0.5rem, 4vh, 2.5rem);
+    }
+    .brand {
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .brand:hover { filter: brightness(1.1); }
+    h1 {
+      margin: 0.35rem 0 0;
+      font-size: clamp(1.45rem, 1.1rem + 2.2vw, 2.15rem);
+      color: var(--accent);
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+    }
+    .lede {
+      margin: 0.65rem 0 0;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: clamp(0.9rem, 0.85rem + 0.3vw, 1rem);
+      max-width: 36rem;
+    }
+    code { color: var(--accent); font-size: 0.92em; word-break: break-all; }
+
+    .mine {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      padding: clamp(1rem, 2.5vw, 1.5rem);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .mine.running {
+      border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+    }
+    .mine.found {
+      border-color: color-mix(in srgb, var(--ok) 50%, var(--line));
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+    }
+    button {
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 1rem;
+      min-height: 3rem;
+      padding: 0.75rem 1.25rem;
+      border: 0;
+      cursor: pointer;
+      flex: 1 1 12rem;
+    }
+    #mineBtn {
+      background: var(--accent);
+      color: #111;
+    }
+    #mineBtn:hover:not(:disabled) { filter: brightness(1.08); }
+    #mineBtn:disabled { opacity: 0.55; cursor: wait; }
+    #stopBtn {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      flex: 0 1 auto;
+      display: none;
+    }
+    #stopBtn.visible { display: inline-flex; align-items: center; justify-content: center; }
+    #stopBtn:hover { color: var(--fg); border-color: var(--muted); }
+    button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+
+    .pulse {
+      display: none;
+      height: 3px;
+      background: var(--line);
+      overflow: hidden;
+      position: relative;
+    }
+    .mine.running .pulse { display: block; }
+    .pulse::after {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 40%;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      animation: sweep 1.1s ease-in-out infinite;
+    }
+    @keyframes sweep {
+      from { transform: translateX(-100%); }
+      to { transform: translateX(280%); }
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.65rem 0.85rem;
+    }
+    @media (min-width: 520px) {
+      .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+    .stat {
+      min-width: 0;
+      padding: 0.55rem 0.65rem;
+      background: #100d0a;
+      border: 1px solid var(--line);
+    }
+    .stat .label {
+      display: block;
+      font-size: 0.68rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+    .stat .value {
+      font-size: clamp(0.95rem, 0.85rem + 0.4vw, 1.1rem);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .stat .value.ok { color: var(--ok); }
+
+    #status {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+      min-height: 2.7em;
+    }
+    #status.ok { color: var(--ok); }
+    #status.err { color: #e86a5a; }
+
+    details.agent {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 0.85rem 1rem;
+    }
+    details.agent summary {
+      cursor: pointer;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.9rem;
+      list-style: none;
+    }
+    details.agent summary::-webkit-details-marker { display: none; }
+    details.agent summary::before {
+      content: "▸ ";
+      color: var(--accent);
+    }
+    details.agent[open] summary::before { content: "▾ "; }
+    details.agent pre {
+      margin: 0.85rem 0 0;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      font-size: clamp(0.68rem, 0.62rem + 0.25vw, 0.78rem);
+      line-height: 1.45;
+      color: var(--muted);
+      max-width: 100%;
+      white-space: pre;
+    }
+
+    .job-meta {
+      font-size: 0.78rem;
+      color: var(--muted);
+      word-break: break-all;
+    }
+
+    @media (min-width: 1100px) {
+      :root { --shell: min(44rem, 100%); }
+    }
+    @media (min-width: 1600px) {
+      :root { --shell: min(48rem, 52vw); }
+      body {
+        background-image:
+          radial-gradient(ellipse 45% 50% at 50% 0%, #24180c 0%, transparent 55%),
+          radial-gradient(ellipse 22% 40% at 8% 70%, #1a1208 0%, transparent 50%),
+          radial-gradient(ellipse 22% 40% at 92% 70%, #1a1208 0%, transparent 50%);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .pulse::after { animation: none; width: 100%; opacity: 0.5; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <a class="brand" href="/">Spamming Bitcoin</a>
+      <h1>402 — Bitcoin PoW required</h1>
+      <p class="lede">
+        Mine in this browser until a SHA-256d hash beats ~{{ job.zero_bits }} zero bits
+        (usually a few seconds on a laptop). Then the vault unlocks.
+      </p>
+    </header>
+
+    <section class="mine" id="minePanel" aria-labelledby="mineHeading">
+      <h2 id="mineHeading" class="visually-hidden" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Browser miner</h2>
+      <div class="actions">
+        <button id="mineBtn" type="button">Mine in this browser</button>
+        <button id="stopBtn" type="button">Stop</button>
+      </div>
+      <div class="pulse" aria-hidden="true"></div>
+      <div class="stats" aria-live="polite">
+        <div class="stat"><span class="label">Elapsed</span><span class="value" id="statTime">0.0s</span></div>
+        <div class="stat"><span class="label">Hashes</span><span class="value" id="statHashes">0</span></div>
+        <div class="stat"><span class="label">Hashrate</span><span class="value" id="statRate">—</span></div>
+        <div class="stat"><span class="label">Nonce</span><span class="value" id="statNonce">0</span></div>
+      </div>
+      <p id="status">Ready — tap Mine when you are.</p>
+      <p class="job-meta">Job <code>{{ job.job_id }}</code> · target ~{{ job.zero_bits }} zero-bits · source <code>{{ job.source | default('local') }}</code></p>
+    </section>
+
+    <details class="agent">
+      <summary>Agent shell recipe</summary>
+      <pre id="hint">{{ payment.accepts[0].extra.minerHint.commands | join('\n') }}</pre>
+    </details>
+  </main>
+
+  <form id="unlockForm" method="post" action="/meme/unlock" hidden>
+    <input type="hidden" name="receipt_token" id="receiptToken" />
+    <input type="hidden" name="elapsed_sec" id="elapsedSec" />
+    <input type="hidden" name="hashes" id="hashesField" />
+    <input type="hidden" name="hashrate" id="hashrateField" />
+    <input type="hidden" name="job_source" id="jobSource" value="{{ job.source | default('local') }}" />
+  </form>
+
+  <script>
+    const JOB = {
+      jobId: {{ job.job_id | tojson }},
+      prefix76: {{ job.prefix76_hex | tojson }},
+      target: {{ job.access_target }},
+      publisherId: {{ publisher_id | tojson }},
+      resource: {{ resource | tojson }},
+      source: {{ (job.source | default('local')) | tojson }},
+    };
+
+    const mineBtn = document.getElementById("mineBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const statusEl = document.getElementById("status");
+    const panel = document.getElementById("minePanel");
+    const statTime = document.getElementById("statTime");
+    const statHashes = document.getElementById("statHashes");
+    const statRate = document.getElementById("statRate");
+    const statNonce = document.getElementById("statNonce");
+
+    let stopRequested = false;
+
+    function sha256(buf) {
+      return crypto.subtle.digest("SHA-256", buf);
+    }
+
+    async function sha256d(buf) {
+      const once = await sha256(buf);
+      return new Uint8Array(await sha256(once));
+    }
+
+    function u32le(n) {
+      const b = new Uint8Array(4);
+      new DataView(b.buffer).setUint32(0, n >>> 0, true);
+      return b;
+    }
+
+    function hexToBytes(hex) {
+      const out = new Uint8Array(hex.length / 2);
+      for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+      return out;
+    }
+
+    function meetsTarget(digest, targetBig) {
+      let hex = "";
+      for (const x of digest) hex += x.toString(16).padStart(2, "0");
+      return BigInt("0x" + hex) < targetBig;
+    }
+
+    function fmt(n) {
+      return n.toLocaleString("en-US");
+    }
+
+    function setStatus(text, kind) {
+      statusEl.textContent = text;
+      statusEl.className = kind || "";
+    }
+
+    function setRunning(on) {
+      panel.classList.toggle("running", on);
+      panel.classList.toggle("found", false);
+      mineBtn.disabled = on;
+      stopBtn.classList.toggle("visible", on);
+      mineBtn.textContent = on ? "Mining…" : "Mine in this browser";
+    }
+
+    stopBtn.onclick = () => {
+      stopRequested = true;
+      setStatus("Stopping…");
+    };
+
+    mineBtn.onclick = async () => {
+      stopRequested = false;
+      setRunning(true);
+      setStatus("Grinding SHA-256d against the pool job…");
+
+      const prefix = hexToBytes(JOB.prefix76);
+      const target = BigInt(JOB.target);
+      const t0 = performance.now();
+      let nonce = 0;
+      let hashes = 0;
+
+      // Smaller batches keep the UI responsive on phones.
+      const batch = matchMedia("(pointer: coarse)").matches ? 64 : 256;
+
+      while (!stopRequested) {
+        for (let i = 0; i < batch; i++) {
+          const header = new Uint8Array(80);
+          header.set(prefix, 0);
+          header.set(u32le(nonce), 76);
+          const digest = await sha256d(header);
+          hashes += 1;
+
+          if (meetsTarget(digest, target)) {
+            const secs = (performance.now() - t0) / 1000;
+            panel.classList.remove("running");
+            panel.classList.add("found");
+            stopBtn.classList.remove("visible");
+            mineBtn.disabled = true;
+            mineBtn.textContent = "Unlocking…";
+            statTime.textContent = secs.toFixed(1) + "s";
+            statHashes.textContent = fmt(hashes);
+            statRate.textContent = fmt(Math.round(hashes / Math.max(secs, 0.001))) + " H/s";
+            statNonce.textContent = String(nonce);
+            setStatus(`Found nonce ${nonce} in ${secs.toFixed(2)}s — submitting receipt…`, "ok");
+
+            try {
+              const resp = await fetch("/meme/mine-browser", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ job_id: JOB.jobId, nonce }),
+              });
+              const data = await resp.json();
+              if (!data.ok) {
+                setStatus("Submit failed: " + data.error, "err");
+                setRunning(false);
+                mineBtn.textContent = "Try again";
+                return;
+              }
+              document.getElementById("receiptToken").value = data.receiptToken;
+              document.getElementById("elapsedSec").value = String(secs);
+              document.getElementById("hashesField").value = String(hashes);
+              document.getElementById("hashrateField").value = String(Math.round(hashes / Math.max(secs, 0.001)));
+              document.getElementById("jobSource").value = JOB.source || "local";
+              document.getElementById("unlockForm").submit();
+            } catch (err) {
+              setStatus("Network error: " + (err && err.message ? err.message : err), "err");
+              setRunning(false);
+              mineBtn.textContent = "Try again";
+            }
+            return;
+          }
+          nonce = (nonce + 1) >>> 0;
+        }
+
+        const secs = (performance.now() - t0) / 1000;
+        const rate = hashes / Math.max(secs, 0.001);
+        statTime.textContent = secs.toFixed(1) + "s";
+        statHashes.textContent = fmt(hashes);
+        statRate.textContent = fmt(Math.round(rate)) + " H/s";
+        statNonce.textContent = String(nonce);
+        setStatus(`Still mining… looking for ~{{ job.zero_bits }} leading zero bits.`);
+        await new Promise((r) => setTimeout(r, 0));
+      }
+
+      setRunning(false);
+      setStatus("Stopped. Hit Mine when you want to try again.");
+      mineBtn.textContent = "Mine in this browser";
+    };
+  </script>
+</body>
+</html>

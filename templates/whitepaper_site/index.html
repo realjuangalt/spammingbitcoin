@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>{{ title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c0a08;
+      --fg: #f5e6c8;
+      --accent: #f7931a;
+      --muted: #9a8b70;
+      --pad: clamp(1rem, 3vw, 2.5rem);
+      --shell: min(42rem, 100%);
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      background: var(--bg);
+      color: var(--fg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: max(var(--pad), env(safe-area-inset-top))
+               max(var(--pad), env(safe-area-inset-right))
+               max(var(--pad), env(safe-area-inset-bottom))
+               max(var(--pad), env(safe-area-inset-left));
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -10%, #2a1c0c 0%, transparent 55%),
+        radial-gradient(ellipse 60% 40% at 80% 100%, #1a1208 0%, transparent 50%);
+    }
+    .shell { width: var(--shell); text-align: center; }
+    .brand {
+      font-size: clamp(1.75rem, 5vw + 0.5rem, 3rem);
+      font-weight: 700;
+      color: var(--accent);
+      margin: 0 0 0.75rem;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+    }
+    p.lead {
+      margin: 0 auto;
+      color: var(--muted);
+      max-width: 34rem;
+      line-height: 1.55;
+      font-size: clamp(0.95rem, 0.9rem + 0.35vw, 1.1rem);
+    }
+    a.cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1.75rem;
+      min-height: 3rem;
+      padding: 0.85rem 1.5rem;
+      background: var(--accent);
+      color: #111;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 1rem;
+      width: min(100%, 22rem);
+    }
+    a.cta:hover { filter: brightness(1.08); }
+    a.cta:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; }
+    .meta {
+      margin-top: 1.5rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.5;
+      word-break: break-all;
+    }
+    .meta a { color: var(--accent); }
+    nav.menu {
+      margin-top: 2rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid #2a2218;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem 1.25rem;
+      justify-content: center;
+      font-size: 0.82rem;
+    }
+    nav.menu a {
+      color: var(--muted);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+    }
+    nav.menu a:hover {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <h1 class="brand">Bitcoin: A Peer-to-Peer Electronic Cash System</h1>
+    <p class="lead">
+      Satoshi Nakamoto’s white paper, gated by SHA-256d proof of work.
+      This Site is enrolled on the Pool like any other publisher — unlocks credit
+      <code>{{ publisher_id }}</code> independently of the meme vault.
+    </p>
+    <a class="cta" href="/paper">Unlock the white paper →</a>
+    <p class="meta">
+      Access difficulty ~{{ access_bits }} zero-bits
+      {% if portal_url %}<br /><a href="{{ portal_url }}">Site portal</a>{% endif %}
+    </p>
+    <nav class="menu" aria-label="Pool">
+      <a href="https://{{ domain }}/">Meme vault</a>
+      <a href="https://signup.{{ domain }}/">Enroll your Site</a>
+      <a href="https://api.{{ domain }}/dashboard">Pool dashboard</a>
+      {% if github_repo %}<a href="{{ github_repo }}" rel="noopener" target="_blank">GitHub</a>{% endif %}
+    </nav>
+  </main>
+</body>
+</html>

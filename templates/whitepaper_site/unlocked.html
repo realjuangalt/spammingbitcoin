@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>{{ title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c0a08;
+      --fg: #f5e6c8;
+      --accent: #f7931a;
+      --muted: #9a8b70;
+      --panel: #16120e;
+      --line: #2a2218;
+      --ok: #3ddc97;
+      --pad: clamp(1rem, 2.5vw, 2rem);
+      --shell: min(52rem, 100%);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      background: var(--bg);
+      color: var(--fg);
+      display: flex;
+      justify-content: center;
+      padding: max(var(--pad), env(safe-area-inset-top))
+               max(var(--pad), env(safe-area-inset-right))
+               max(var(--pad), env(safe-area-inset-bottom))
+               max(var(--pad), env(safe-area-inset-left));
+      background-image: radial-gradient(ellipse 70% 40% at 50% 0%, #24180c 0%, transparent 55%);
+    }
+    .shell {
+      width: var(--shell);
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.85rem;
+      padding-block: clamp(0.5rem, 3vh, 2rem);
+    }
+    .brand {
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      text-decoration: none;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(1.5rem, 1.2rem + 2vw, 2.1rem);
+      color: var(--accent);
+      letter-spacing: -0.02em;
+    }
+    h2 {
+      margin: 0 0 0.65rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .frame {
+      border: 2px solid var(--accent);
+      background: #100d0a;
+      min-height: min(70dvh, 720px);
+      height: min(70dvh, 720px);
+    }
+    .frame embed, .frame iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #fff;
+    }
+    .cta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      justify-content: center;
+    }
+    .cta a {
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 1rem;
+      min-height: 3rem;
+      padding: 0.75rem 1.25rem;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--accent);
+      color: #111;
+      flex: 1 1 12rem;
+      max-width: 18rem;
+    }
+    .cta a.ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--line);
+    }
+    .panel {
+      text-align: left;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      padding: clamp(1rem, 2.5vw, 1.35rem);
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.65rem;
+    }
+    @media (min-width: 560px) {
+      .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+    .stat {
+      padding: 0.55rem 0.65rem;
+      background: #100d0a;
+      border: 1px solid var(--line);
+    }
+    .stat .label {
+      display: block;
+      font-size: 0.68rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+    .stat .value {
+      font-size: clamp(0.9rem, 0.82rem + 0.35vw, 1.05rem);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      word-break: break-all;
+    }
+    .stat .value.ok { color: var(--ok); }
+    .hash {
+      margin-top: 0.85rem;
+      padding: 0.65rem 0.75rem;
+      background: #100d0a;
+      border: 1px solid var(--line);
+      font-size: 0.72rem;
+      color: var(--muted);
+      word-break: break-all;
+    }
+    .meta { color: var(--muted); font-size: 0.88rem; line-height: 1.5; margin: 0; }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <a class="brand" href="/">Bitcoin White Paper</a>
+    <h1>Proof accepted</h1>
+    <p class="meta">Satoshi Nakamoto — <em>Bitcoin: A Peer-to-Peer Electronic Cash System</em> (2008)</p>
+
+    <div class="frame">
+      <embed src="{{ paper_url }}" type="application/pdf" title="Bitcoin white paper" />
+    </div>
+
+    <div class="cta">
+      <a href="{{ paper_url }}" download="bitcoin.pdf">Download PDF</a>
+      <a class="ghost" href="/paper">Mine again</a>
+    </div>
+
+    {% if solution %}
+    <section class="panel" aria-labelledby="solHeading">
+      <h2 id="solHeading">Your solution</h2>
+      <div class="stats">
+        <div class="stat">
+          <span class="label">Nonce</span>
+          <span class="value">{{ solution.nonce }}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Zero-bits</span>
+          <span class="value ok">{{ solution.achieved_zero_bits }} <span style="color:var(--muted);font-weight:400">/ {{ solution.target_zero_bits }}</span></span>
+        </div>
+        <div class="stat">
+          <span class="label">Elapsed</span>
+          <span class="value">{% if solution.elapsed_sec is not none %}{{ "%.2f"|format(solution.elapsed_sec) }}s{% else %}—{% endif %}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Hashrate</span>
+          <span class="value">{% if solution.hashrate is not none %}{{ "{:,.0f}".format(solution.hashrate) }} H/s{% else %}—{% endif %}</span>
+        </div>
+      </div>
+      <div class="hash"><strong style="color:var(--fg)">SHA-256d (LE)</strong><br />{{ solution.digest }}</div>
+    </section>
+    {% endif %}
+  </main>
+</body>
+</html>

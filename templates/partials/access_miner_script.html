@@ -1,0 +1,396 @@
+{# Shared browser miner: fixed hash window → submit best share → PoW-weighted vote. #}
+<script>
+(function () {
+  const CFG = window.X402_ACCESS || {};
+  const jobEndpoint = CFG.jobEndpoint;
+  const mineEndpoint = CFG.mineEndpoint;
+  const nextEndpoint = CFG.nextEndpoint;
+  const voteEndpoint = CFG.voteEndpoint;
+  // Meme flow sets windowSeconds → fixed window, submit best share (vote weight).
+  // Other gates (e.g. whitepaper) leave it unset → stop on the first solve.
+  const fixedWindow = CFG.windowSeconds != null;
+  const windowSeconds = Number(CFG.windowSeconds || CFG.maxSeconds || 21);
+  // "navigate": submit the unlock form (paywall). "ajax": swap meme in place.
+  const completion = CFG.completion === "ajax" ? "ajax" : "navigate";
+  const idleLabel = CFG.buttonLabel || "Mine in this browser";
+
+  const mineBtn = document.getElementById("mineBtn");
+  const stopBtn = document.getElementById("stopBtn");
+  const statusEl = document.getElementById("status");
+  const panel = document.getElementById("minePanel");
+  const jobMeta = document.getElementById("jobMeta");
+  const statTime = document.getElementById("statTime");
+  const statHashes = document.getElementById("statHashes");
+  const statRate = document.getElementById("statRate");
+  const statNonce = document.getElementById("statNonce");
+  const backendEl = document.getElementById("statBackend");
+  const progFill = document.getElementById("mineProgressFill");
+
+  // Vote UI (present on the unlocked page only).
+  let voteToken = CFG.voteToken || null;
+  const votePanel = document.getElementById("votePanel");
+  const voteUp = document.getElementById("voteUp");
+  const voteDown = document.getElementById("voteDown");
+  const voteStatus = document.getElementById("voteStatus");
+
+  let stopRequested = false;
+
+  function sha256(buf) { return crypto.subtle.digest("SHA-256", buf); }
+  async function sha256d(buf) {
+    return new Uint8Array(await sha256(await sha256(buf)));
+  }
+  function u32le(n) {
+    const b = new Uint8Array(4);
+    new DataView(b.buffer).setUint32(0, n >>> 0, true);
+    return b;
+  }
+  function hexToBytes(hex) {
+    const out = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+    return out;
+  }
+  function digestToBig(digest) {
+    let hex = "";
+    for (const x of digest) hex += x.toString(16).padStart(2, "0");
+    return BigInt("0x" + hex);
+  }
+  function fmt(n) { return n.toLocaleString("en-US"); }
+  function setStatus(text, kind) {
+    statusEl.textContent = text;
+    statusEl.className = kind || "";
+  }
+  function setProgress(frac) {
+    if (!progFill) return;
+    const pct = Math.max(0, Math.min(1, frac)) * 100;
+    progFill.style.width = pct.toFixed(1) + "%";
+  }
+  function setRunning(on) {
+    panel.classList.toggle("running", on);
+    panel.classList.toggle("found", false);
+    mineBtn.disabled = on;
+    stopBtn.classList.toggle("visible", on);
+    mineBtn.textContent = on ? "Mining…" : idleLabel;
+  }
+  function updateJobMeta(job) {
+    if (!jobMeta || !job) return;
+    jobMeta.innerHTML =
+      "Job <code>" + job.job_id + "</code> · " + windowSeconds + "s window · gate ~" +
+      job.zero_bits + " zero-bits · <strong>" + (job.capability || "?") +
+      "</strong> · source <code>" + (job.source || "local") + "</code>";
+  }
+  function paintStats(secs, hashes, nonce, backend) {
+    statTime.textContent = secs.toFixed(1) + "s";
+    statHashes.textContent = fmt(hashes);
+    statRate.textContent = fmt(Math.round(hashes / Math.max(secs, 0.001))) + " H/s";
+    if (nonce != null) statNonce.textContent = String(nonce);
+    if (backendEl) backendEl.textContent = backend.toUpperCase();
+  }
+  function resetStats() {
+    statTime.textContent = "0.0s";
+    statHashes.textContent = "0";
+    statRate.textContent = "—";
+    statNonce.textContent = "0";
+    if (backendEl) backendEl.textContent = "—";
+    setProgress(0);
+  }
+
+  async function probeWebGPU() {
+    if (!navigator.gpu) return false;
+    try {
+      const adapter = await navigator.gpu.requestAdapter();
+      if (!adapter) return false;
+      const device = await adapter.requestDevice();
+      device.destroy();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function requestJob(capability) {
+    const resp = await fetch(jobEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ capability }),
+    });
+    const data = await resp.json();
+    if (!data.job_id) throw new Error(data.error || "job request failed");
+    return {
+      job_id: data.job_id,
+      prefix76_hex: data.prefix76_hex,
+      access_target: data.access_target,
+      zero_bits: data.zero_bits,
+      source: data.source || "local",
+      capability: data.capability || capability,
+    };
+  }
+
+  // Two behaviors sharing one loop:
+  //  * fixedWindow=true  → hash the whole window, submit the single best (lowest)
+  //    share found. Best share = unlock proof AND vote-weight proof.
+  //  * fixedWindow=false → return the first share that meets the target (classic gate).
+  async function mineWindow(job, windowSec, backend, lanes) {
+    const prefix = hexToBytes(job.prefix76_hex);
+    const target = BigInt(job.access_target);
+    const t0 = performance.now();
+    let nextNonce = 0;
+    let hashes = 0;
+    let bestVal = null;
+    let bestNonce = 0;
+    let metTarget = false;
+    let hit = null;
+    const chunk = backend === "gpu" ? 128 : (matchMedia("(pointer: coarse)").matches ? 64 : 256);
+
+    async function lane() {
+      while (!stopRequested) {
+        if (hit) return;
+        const secs = (performance.now() - t0) / 1000;
+        if (secs >= windowSec) return;
+        const start = nextNonce;
+        nextNonce = (nextNonce + chunk) >>> 0;
+        for (let i = 0; i < chunk; i++) {
+          const nonce = (start + i) >>> 0;
+          const header = new Uint8Array(80);
+          header.set(prefix, 0);
+          header.set(u32le(nonce), 76);
+          const digest = await sha256d(header);
+          hashes += 1;
+          const val = digestToBig(digest);
+          if (bestVal === null || val < bestVal) { bestVal = val; bestNonce = nonce; }
+          if (val < target) {
+            metTarget = true;
+            if (!fixedWindow && hit === null) {
+              hit = { nonce, hashes, secs: (performance.now() - t0) / 1000, backend };
+              return;
+            }
+          }
+        }
+        const secs2 = (performance.now() - t0) / 1000;
+        paintStats(secs2, hashes, bestNonce, backend);
+        if (fixedWindow) setProgress(secs2 / windowSec);
+        const left = Math.max(0, Math.ceil(windowSec - secs2));
+        setStatus(
+          "Mining on " + backend.toUpperCase() + " · " + left + "s left" +
+            (fixedWindow ? " — the longer you hash, the heavier your vote…" : "…")
+        );
+        await new Promise((r) => setTimeout(r, 0));
+      }
+    }
+
+    await Promise.all(Array.from({ length: Math.max(1, lanes) }, () => lane()));
+    if (stopRequested) throw new Error("stopped");
+    if (!fixedWindow) {
+      if (!hit) throw new Error("no share found in " + windowSec + "s — try again");
+      return hit;
+    }
+    if (!metTarget) throw new Error("no qualifying share in window — try again");
+    setProgress(1);
+    return { nonce: bestNonce, hashes, secs: (performance.now() - t0) / 1000, backend };
+  }
+
+  function markFound(result) {
+    panel.classList.remove("running");
+    panel.classList.add("found");
+    stopBtn.classList.remove("visible");
+    mineBtn.disabled = true;
+    mineBtn.textContent = "Unlocking…";
+    setProgress(1);
+    paintStats(result.secs, result.hashes, result.nonce, result.backend);
+    setStatus(
+      (fixedWindow
+        ? "Window complete via " + result.backend.toUpperCase() + " (" + fmt(result.hashes) +
+          " hashes) — submitting best share…"
+        : "Found nonce " + result.nonce + " via " + result.backend.toUpperCase() + " in " +
+          result.secs.toFixed(2) + "s — submitting…"),
+      "ok"
+    );
+  }
+
+  // Submit the best share to the pool. Throws on rejection.
+  async function submitShare(job, result) {
+    const resp = await fetch(mineEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ job_id: job.job_id, nonce: result.nonce }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!data.ok) throw new Error(data.error || "share rejected by pool");
+    return data.receiptToken;
+  }
+
+  async function completeUnlock(job, result, receiptToken) {
+    const hashrate = Math.round(result.hashes / Math.max(result.secs, 0.001));
+    if (completion === "ajax") {
+      await unlockInPlace(job, result, receiptToken, hashrate);
+      return;
+    }
+    document.getElementById("receiptToken").value = receiptToken;
+    document.getElementById("elapsedSec").value = String(result.secs);
+    document.getElementById("hashesField").value = String(result.hashes);
+    document.getElementById("hashrateField").value = String(hashrate);
+    document.getElementById("jobSource").value = job.source || "local";
+    document.getElementById("unlockForm").submit();
+  }
+
+  async function unlockInPlace(job, result, receiptToken, hashrate) {
+    setStatus("Unlocking next meme…", "ok");
+    const resp = await fetch(nextEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        receipt_token: receiptToken,
+        elapsed_sec: result.secs,
+        hashes: result.hashes,
+        hashrate: hashrate,
+        job_source: job.source || "local",
+      }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!data || !data.ok) throw new Error((data && data.error) || "unlock failed");
+    applyMeme(data);
+    resetToIdle();
+  }
+
+  function setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value == null ? "—" : value;
+  }
+
+  function applyMeme(data) {
+    const img = document.getElementById("memeImg");
+    if (img && data.media_url) {
+      img.src = data.media_url;
+      if (data.meme && data.meme.title) img.alt = data.meme.title;
+    }
+    if (data.meme) {
+      setText("memeTitle", data.meme.title || "");
+      const credit = document.getElementById("memeCredit");
+      if (credit) {
+        credit.textContent = data.meme.credit || "";
+        credit.style.display = data.meme.credit ? "" : "none";
+      }
+      const source = document.getElementById("memeSource");
+      if (source) {
+        if (data.meme.sourceUrl) {
+          source.href = data.meme.sourceUrl;
+          source.style.display = "";
+        } else {
+          source.style.display = "none";
+        }
+      }
+    }
+    const sol = data.solution || {};
+    setText("solNonce", sol.nonce);
+    setText("solZeroAchieved", sol.achieved_zero_bits);
+    setText("solZeroTarget", sol.target_zero_bits != null ? "/ " + sol.target_zero_bits : "");
+    setText("solVoteWeight", sol.vote_weight != null ? sol.vote_weight + "×" : "—");
+    setText("solElapsed", sol.elapsed_sec != null ? sol.elapsed_sec.toFixed(2) + "s" : "—");
+    setText("solHashrate", sol.hashrate != null ? fmt(Math.round(sol.hashrate)) + " H/s" : "—");
+    setText("solHashes", sol.hashes != null ? fmt(sol.hashes) : "—");
+    setText("solSource", sol.source);
+    setText("solJob", sol.job_id);
+    setText("solReceipt", sol.receipt_id);
+    setText("solDigest", sol.digest);
+    // Fresh meme → fresh right-to-vote.
+    resetVote(data.vote_token);
+  }
+
+  function resetToIdle() {
+    stopRequested = false;
+    panel.classList.remove("running", "found");
+    mineBtn.disabled = false;
+    stopBtn.classList.remove("visible");
+    mineBtn.textContent = idleLabel;
+    setProgress(0);
+    setStatus("Unlocked — mine again for another meme.", "ok");
+  }
+
+  // ---- PoW-weighted voting ----
+  function setVoteEnabled(on) {
+    if (voteUp) voteUp.disabled = !on;
+    if (voteDown) voteDown.disabled = !on;
+  }
+  function resetVote(token) {
+    voteToken = token || null;
+    if (voteStatus) voteStatus.textContent = voteToken ? "Your hash gives you a weighted vote." : "";
+    if (votePanel) votePanel.classList.remove("voted");
+    setVoteEnabled(!!voteToken);
+  }
+  async function castVote(direction) {
+    if (!voteToken || !voteEndpoint) return;
+    setVoteEnabled(false);
+    if (voteStatus) voteStatus.textContent = "Recording vote…";
+    try {
+      const resp = await fetch(voteEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vote_token: voteToken, direction }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!data.ok) throw new Error(data.error || "vote failed");
+      voteToken = null; // one vote per unlock
+      if (votePanel) votePanel.classList.add("voted");
+      if (voteStatus) {
+        voteStatus.textContent =
+          (direction > 0 ? "▲ Upvoted" : "▼ Downvoted") + " · weight " + data.weight + "× recorded.";
+      }
+    } catch (err) {
+      if (voteStatus) voteStatus.textContent = "Vote failed: " + (err && err.message ? err.message : err);
+      setVoteEnabled(true);
+    }
+  }
+  if (voteUp) voteUp.onclick = () => castVote(1);
+  if (voteDown) voteDown.onclick = () => castVote(-1);
+  resetVote(voteToken);
+
+  stopBtn.onclick = () => {
+    stopRequested = true;
+    setStatus("Stopping…");
+  };
+
+  mineBtn.onclick = async () => {
+    stopRequested = false;
+    setRunning(true);
+    resetStats();
+    try {
+      const hasGpu = await probeWebGPU();
+      const cap = hasGpu ? "gpu" : "cpu";
+      const lanes = hasGpu ? Math.min(8, Math.max(2, navigator.hardwareConcurrency || 4)) : 1;
+      setStatus(hasGpu ? "GPU detected — hashing the window…" : "Hashing the window on CPU…");
+      const job = await requestJob(cap);
+      updateJobMeta(job);
+      const result = await mineWindow(job, windowSeconds, cap, lanes);
+      markFound(result);
+      const receiptToken = await submitShare(job, result);
+      await completeUnlock(job, result, receiptToken);
+    } catch (err) {
+      setRunning(false);
+      setProgress(0);
+      const msg = err && err.message ? err.message : String(err);
+      if (stopRequested || msg === "stopped") {
+        setStatus("Stopped. Tap " + idleLabel + " to try again.");
+        mineBtn.textContent = idleLabel;
+        return;
+      }
+      setStatus("Mining failed: " + msg, "err");
+      mineBtn.textContent = "Try again";
+    }
+  };
+
+  probeWebGPU().then((ok) => {
+    if (fixedWindow) {
+      setStatus(
+        ok
+          ? "GPU available — you'll hash a " + windowSeconds + "s window. More hashes = heavier vote."
+          : "Ready — this browser hashes a " + windowSeconds + "s window on CPU."
+      );
+    } else {
+      setStatus(
+        ok
+          ? "GPU available — will try a harder job first, then CPU if needed."
+          : "Ready — this browser will mine on CPU."
+      );
+    }
+  });
+})();
+</script>

@@ -93,6 +93,7 @@
       font-size: clamp(0.88rem, 0.82rem + 0.25vw, 1rem);
     }
     .meta strong { color: var(--fg); }
+    .meme-line { display: block; }
     a { color: var(--accent); }
     a:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
     .nav {
@@ -104,16 +105,52 @@
       font-size: 0.92rem;
     }
 
-    .cta {
+    .vote {
       width: 100%;
       max-width: var(--art);
       display: flex;
       flex-wrap: wrap;
+      align-items: center;
       gap: 0.65rem;
-      justify-content: center;
-      margin-top: 0.35rem;
+      margin-top: 0.5rem;
+      text-align: left;
     }
-    .cta .primary {
+    .vote button {
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 0.95rem;
+      min-height: 2.75rem;
+      padding: 0.6rem 1rem;
+      border: 1px solid var(--line);
+      background: #100d0a;
+      color: var(--fg);
+      cursor: pointer;
+    }
+    .vote button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .vote button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .vote #voteUp:not(:disabled):hover { color: var(--ok); border-color: var(--ok); }
+    .vote #voteStatus { color: var(--muted); font-size: 0.85rem; flex: 1 1 12rem; }
+    .vote.voted #voteStatus { color: var(--ok); }
+
+    .mine {
+      width: 100%;
+      max-width: var(--art);
+      text-align: left;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      padding: clamp(1rem, 2.5vw, 1.5rem);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+    .mine.running {
+      border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+    }
+    .mine.found { border-color: color-mix(in srgb, var(--ok) 50%, var(--line)); }
+    .actions { display: flex; flex-wrap: wrap; gap: 0.65rem; }
+    .mine button {
       font-family: inherit;
       font-weight: 700;
       font-size: 1rem;
@@ -121,18 +158,29 @@
       padding: 0.75rem 1.25rem;
       border: 0;
       cursor: pointer;
-      width: 100%;
-      max-width: 20rem;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      box-sizing: border-box;
-      background: var(--accent);
-      color: #111;
+      flex: 1 1 12rem;
     }
-    .cta .primary:hover { filter: brightness(1.08); }
-    .cta .primary:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+    #mineBtn { background: var(--accent); color: #111; }
+    #mineBtn:hover:not(:disabled) { filter: brightness(1.08); }
+    #mineBtn:disabled { opacity: 0.55; cursor: wait; }
+    #stopBtn {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      flex: 0 1 auto;
+      display: none;
+    }
+    #stopBtn.visible { display: inline-flex; align-items: center; justify-content: center; }
+    #stopBtn:hover { color: var(--fg); border-color: var(--muted); }
+    button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+
+    .mprog { height: 8px; background: var(--line); overflow: hidden; position: relative; border-radius: 999px; }
+    .mprog > span {
+      display: block; height: 100%; width: 0%;
+      background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 70%, #000), var(--accent));
+      transition: width 0.2s linear;
+    }
+    .mine.found .mprog > span { background: var(--ok); }
 
     .panel {
       width: 100%;
@@ -173,6 +221,19 @@
     }
     .stat .value.ok { color: var(--ok); }
 
+    #status {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+      min-height: 2.7em;
+    }
+    #status.ok { color: var(--ok); }
+    #status.err { color: #e86a5a; }
+    .job-meta { font-size: 0.78rem; color: var(--muted); word-break: break-all; }
+
     .hash {
       margin-top: 0.85rem;
       padding: 0.65rem 0.75rem;
@@ -208,28 +269,47 @@
     }
   </style>
 </head>
-<body class="has-site-masthead">
-  {% include "partials/masthead.html" %}
-
+<body>
   <main class="shell">
     <a class="brand" href="/">Spamming Bitcoin</a>
     <h1>Proof accepted</h1>
     {% if meme and media_url %}
       <div class="frame">
-        <img src="{{ media_url }}" alt="{{ meme.title }}" loading="eager" />
+        <img id="memeImg" src="{{ media_url }}" alt="{{ meme.title }}" loading="eager" />
       </div>
       <p class="meta">
-        <strong>{{ meme.title }}</strong>
-        {% if meme.credit %}<br />{{ meme.credit }}{% endif %}
-        {% if meme.sourceUrl %}<br /><a href="{{ meme.sourceUrl }}" rel="noopener" target="_blank">source</a>{% endif %}
+        <strong id="memeTitle">{{ meme.title }}</strong>
+        <span id="memeCredit" class="meme-line"{% if not meme.credit %} style="display:none"{% endif %}>{{ meme.credit }}</span>
+        <a id="memeSource" class="meme-line" href="{{ meme.sourceUrl or '#' }}" rel="noopener" target="_blank"{% if not meme.sourceUrl %} style="display:none"{% endif %}>source</a>
       </p>
-      <div class="cta">
-        <a class="primary" href="/meme">New meme</a>
+
+      <div class="vote" id="votePanel" aria-label="Proof-of-work weighted vote">
+        <button id="voteUp" type="button"{% if not vote_token %} disabled{% endif %}>▲ Upvote</button>
+        <button id="voteDown" type="button"{% if not vote_token %} disabled{% endif %}>▼ Downvote</button>
+        <span id="voteStatus">Your hash gives you a weighted vote{% if solution and solution.vote_weight %} · {{ solution.vote_weight }}×{% endif %}.</span>
+        <a href="{{ leaderboard_endpoint | default('/meme/leaderboard') }}">leaderboard →</a>
       </div>
-      <p class="meta" style="margin-top:0;font-size:0.78rem">Mine another share to unlock the next one.</p>
     {% else %}
       <p class="meta">Meme gallery is empty — drop images into <code>apps/demo_site/static/memes/</code> and update <code>manifest.json</code>.</p>
     {% endif %}
+
+    <section class="mine" id="minePanel" aria-labelledby="mineHeading">
+      <h2 id="mineHeading" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Mine another meme</h2>
+      <div class="actions">
+        <button id="mineBtn" type="button">New meme</button>
+        <button id="stopBtn" type="button">Stop</button>
+      </div>
+      <div class="mprog" role="progressbar" aria-label="Mining window progress"><span id="mineProgressFill"></span></div>
+      <div class="stats" aria-live="polite">
+        <div class="stat"><span class="label">Elapsed</span><span class="value" id="statTime">0.0s</span></div>
+        <div class="stat"><span class="label">Hashes</span><span class="value" id="statHashes">0</span></div>
+        <div class="stat"><span class="label">Hashrate</span><span class="value" id="statRate">—</span></div>
+        <div class="stat"><span class="label">Backend</span><span class="value" id="statBackend">—</span></div>
+        <div class="stat"><span class="label">Nonce</span><span class="value" id="statNonce">0</span></div>
+      </div>
+      <p id="status">Ready — mine again for another meme.</p>
+      <p class="job-meta" id="jobMeta"></p>
+    </section>
 
     {% if solution %}
     <section class="panel" aria-labelledby="solHeading">
@@ -237,40 +317,44 @@
       <div class="stats">
         <div class="stat">
           <span class="label">Nonce</span>
-          <span class="value">{{ solution.nonce }}</span>
+          <span class="value" id="solNonce">{{ solution.nonce }}</span>
         </div>
         <div class="stat">
           <span class="label">Zero-bits</span>
-          <span class="value ok">{{ solution.achieved_zero_bits }} <span style="color:var(--muted);font-weight:400">/ {{ solution.target_zero_bits }}</span></span>
+          <span class="value ok"><span id="solZeroAchieved">{{ solution.achieved_zero_bits }}</span> <span id="solZeroTarget" style="color:var(--muted);font-weight:400">/ {{ solution.target_zero_bits }}</span></span>
+        </div>
+        <div class="stat">
+          <span class="label">Vote weight</span>
+          <span class="value ok" id="solVoteWeight">{% if solution.vote_weight is not none %}{{ solution.vote_weight }}×{% else %}—{% endif %}</span>
         </div>
         <div class="stat">
           <span class="label">Elapsed</span>
-          <span class="value">{% if solution.elapsed_sec is not none %}{{ "%.2f"|format(solution.elapsed_sec) }}s{% else %}—{% endif %}</span>
+          <span class="value" id="solElapsed">{% if solution.elapsed_sec is not none %}{{ "%.2f"|format(solution.elapsed_sec) }}s{% else %}—{% endif %}</span>
         </div>
         <div class="stat">
           <span class="label">Hashrate</span>
-          <span class="value">{% if solution.hashrate is not none %}{{ "{:,.0f}".format(solution.hashrate) }} H/s{% else %}—{% endif %}</span>
+          <span class="value" id="solHashrate">{% if solution.hashrate is not none %}{{ "{:,.0f}".format(solution.hashrate) }} H/s{% else %}—{% endif %}</span>
         </div>
         <div class="stat">
           <span class="label">Hashes tried</span>
-          <span class="value">{% if solution.hashes is not none %}{{ "{:,}".format(solution.hashes) }}{% else %}—{% endif %}</span>
+          <span class="value" id="solHashes">{% if solution.hashes is not none %}{{ "{:,}".format(solution.hashes) }}{% else %}—{% endif %}</span>
         </div>
         <div class="stat">
           <span class="label">Work source</span>
-          <span class="value" style="font-size:0.85rem">{{ solution.source }}</span>
+          <span class="value" id="solSource" style="font-size:0.85rem">{{ solution.source }}</span>
         </div>
         <div class="stat">
           <span class="label">Job</span>
-          <span class="value" style="font-size:0.75rem">{{ solution.job_id }}</span>
+          <span class="value" id="solJob" style="font-size:0.75rem">{{ solution.job_id }}</span>
         </div>
         <div class="stat">
           <span class="label">Receipt</span>
-          <span class="value" style="font-size:0.72rem">{{ solution.receipt_id }}</span>
+          <span class="value" id="solReceipt" style="font-size:0.72rem">{{ solution.receipt_id }}</span>
         </div>
       </div>
       <div class="hash">
         <strong>SHA-256d (LE hex)</strong>
-        {{ solution.digest }}
+        <span id="solDigest">{{ solution.digest }}</span>
       </div>
     </section>
 
@@ -279,7 +363,7 @@
       <p>
         You paid for this meme with <strong>compute</strong>, not dollars.
         Your machine ground SHA-256d nonces on a real Bitcoin <strong>Testnet4</strong> pool job
-        until the hash beat ~{{ solution.target_zero_bits }} leading zero bits — the site’s access difficulty.
+        for a fixed window — the harder you hash, the <strong>heavier your vote</strong> on the leaderboard.
       </p>
       <p>
         That’s the same family of work Bitcoin miners do, just an easier “share” target so it finishes in seconds.
@@ -293,9 +377,25 @@
     {% endif %}
 
     <nav class="nav" aria-label="Next">
+      <a href="{{ leaderboard_endpoint | default('/meme/leaderboard') }}">Meme leaderboard</a>
       <a href="https://phneep.com/propaganda/" rel="noopener" target="_blank">Phneep propaganda</a>
       <a href="https://signup.spammingbitcoin.com">Pool signup</a>
     </nav>
   </main>
+
+  <script>
+    window.X402_ACCESS = {
+      jobEndpoint: {{ (job_endpoint or "/meme/job") | tojson }},
+      mineEndpoint: {{ (mine_endpoint or "/meme/mine-browser") | tojson }},
+      nextEndpoint: {{ (next_endpoint or "/meme/next") | tojson }},
+      voteEndpoint: {{ (vote_endpoint or "/meme/vote") | tojson }},
+      voteToken: {{ (vote_token or none) | tojson }},
+      maxSeconds: {{ (access_max_seconds or 30) | int }},
+      windowSeconds: {{ (window_seconds or 21) | int }},
+      completion: "ajax",
+      buttonLabel: "New meme",
+    };
+  </script>
+  {% include "partials/access_miner_script.html" %}
 </body>
 </html>

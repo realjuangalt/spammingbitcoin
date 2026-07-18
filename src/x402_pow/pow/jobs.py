@@ -19,6 +19,7 @@ class MiningJob:
     created_at: float
     expires_at: float
     source: str = "local"  # local | reseller
+    capability: str = "cpu"  # cpu | gpu
     upstream_meta: dict = field(default_factory=dict)
 
     @property
@@ -38,6 +39,7 @@ class JobManager:
         publisher_id: str,
         resource: str,
         zero_bits: int | None = None,
+        capability: str = "cpu",
         ttl_seconds: int = 120,
     ) -> MiningJob:
         settings = get_settings()
@@ -80,6 +82,7 @@ class JobManager:
             created_at=now,
             expires_at=now + ttl_seconds,
             source=source,
+            capability=capability,
             upstream_meta=upstream_meta,
         )
         self._jobs[job.job_id] = job

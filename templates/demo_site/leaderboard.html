@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>{{ title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c0a08; --fg: #f5e6c8; --accent: #f7931a; --muted: #9a8b70;
+      --panel: #16120e; --line: #2a2218; --ok: #3ddc97;
+      --pad: clamp(1rem, 2.5vw, 2rem); --shell: min(64rem, 100%);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100dvh; font-family: "IBM Plex Mono", ui-monospace, monospace;
+      background: var(--bg); color: var(--fg);
+      padding: var(--pad);
+      background-image: radial-gradient(ellipse 70% 40% at 50% 0%, #24180c 0%, transparent 55%);
+      display: flex; justify-content: center;
+    }
+    .shell { width: var(--shell); display: flex; flex-direction: column; gap: 1.25rem; padding-block: clamp(0.5rem, 4vh, 2.5rem); }
+    .brand { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); text-decoration: none; }
+    h1 { margin: 0.35rem 0 0; font-size: clamp(1.45rem, 1.1rem + 2.2vw, 2.15rem); color: var(--accent); line-height: 1.15; }
+    .lede { margin: 0.5rem 0 0; color: var(--muted); line-height: 1.5; max-width: 46rem; }
+    a { color: var(--accent); }
+    .boards { display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
+    @media (min-width: 780px) { .boards { grid-template-columns: 1fr 1fr; } }
+    .board { background: var(--panel); border: 1px solid var(--line); padding: clamp(0.85rem, 2vw, 1.25rem); }
+    .board h2 { margin: 0 0 0.85rem; font-size: 0.9rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+    .board h2 .sub { color: var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0; display: block; font-size: 0.78rem; margin-top: 0.2rem; }
+    ol { margin: 0; padding: 0; list-style: none; counter-reset: rank; }
+    li { display: flex; gap: 0.75rem; align-items: baseline; padding: 0.6rem 0; border-top: 1px solid var(--line); }
+    li:first-child { border-top: 0; }
+    li::before { counter-increment: rank; content: counter(rank); color: var(--muted); font-weight: 700; min-width: 1.4rem; text-align: right; }
+    .m-title { flex: 1 1 auto; min-width: 0; }
+    .m-title .t { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .m-title .c { display: block; color: var(--muted); font-size: 0.72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .score { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--ok); text-align: right; }
+    .score .v { color: var(--muted); font-weight: 400; font-size: 0.72rem; display: block; }
+    .empty { color: var(--muted); padding: 0.85rem 0; }
+    .nav { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <a class="brand" href="/">Spamming Bitcoin</a>
+      <h1>Meme leaderboards</h1>
+      <p class="lede">
+        A proof-of-work meritocracy: every vote is weighted by the hashing you did to earn it
+        (bounded at {{ vote_cap }}×, so a phone still counts and an ASIC farm can't own the board).
+        Two boards — what <strong>humans</strong> mine for vs. what <strong>agents</strong> mine for.
+      </p>
+    </header>
+
+    <div class="boards">
+      {% for label, sub, board in [("Human favorites", "voted from browsers", human_board), ("Agent favorites", "voted from CLI/agents", agent_board)] %}
+      <section class="board">
+        <h2>{{ label }}<span class="sub">{{ sub }}</span></h2>
+        {% if board %}
+        <ol>
+          {% for m in board %}
+          <li>
+            <span class="m-title">
+              <span class="t">{% if m.sourceUrl %}<a href="{{ m.sourceUrl }}" rel="noopener" target="_blank">{{ m.title }}</a>{% else %}{{ m.title }}{% endif %}</span>
+              {% if m.credit %}<span class="c">{{ m.credit }}</span>{% endif %}
+            </span>
+            <span class="score">{{ m.score }}<span class="v">{{ m.votes }} votes · ▲{{ m.up_weight }} ▼{{ m.down_weight }}</span></span>
+          </li>
+          {% endfor %}
+        </ol>
+        {% else %}
+        <p class="empty">No votes yet — unlock a meme and cast the first weighted vote.</p>
+        {% endif %}
+      </section>
+      {% endfor %}
+    </div>
+
+    <nav class="nav">
+      <a href="/meme">Mine a meme →</a>
+      {% if github_repo %}<a href="{{ github_repo }}" rel="noopener" target="_blank">Source</a>{% endif %}
+    </nav>
+  </main>
+</body>
+</html>

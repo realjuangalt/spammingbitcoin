@@ -89,18 +89,30 @@ def ensure_whitepaper_publisher() -> tuple[str, str]:
     return _pub_id, _api_key
 
 
-def create_job_via_api(publisher_id: str, resource: str, zero_bits: int) -> dict:
-    r = httpx.post(
-        f"{api_base()}/v1/jobs",
-        json={
-            "publisher_id": publisher_id,
-            "resource": resource,
-            "access_zero_bits": zero_bits,
-        },
-        timeout=30.0,
-    )
+def create_job_via_api(
+    publisher_id: str,
+    resource: str,
+    *,
+    capability: str = "cpu",
+    zero_bits: int | None = None,
+) -> dict:
+    payload = {"publisher_id": publisher_id, "resource": resource, "capability": capability}
+    if zero_bits is not None:
+        payload["access_zero_bits"] = zero_bits
+    r = httpx.post(f"{api_base()}/v1/jobs", json=payload, timeout=30.0)
     r.raise_for_status()
     return r.json()
+
+
+def job_view_from_api(job: dict) -> dict:
+    return {
+        "job_id": job["jobId"],
+        "prefix76_hex": job["prefix76"],
+        "access_target": int(job["accessTarget"], 0),
+        "zero_bits": job["zeroBits"],
+        "source": job.get("source", "local"),
+        "capability": job.get("capability", "cpu"),
+    }
 
 
 def unlocked_context(receipt, *, elapsed_sec=None, hashes=None, hashrate=None, job_source=None) -> dict:
@@ -162,14 +174,8 @@ async def paper(request: Request):
 
     pub = publishers.get_by_id(pub_id)
     assert pub is not None
-    job = create_job_via_api(pub_id, resource, pub.access_zero_bits)
-    job_view = {
-        "job_id": job["jobId"],
-        "prefix76_hex": job["prefix76"],
-        "access_target": int(job["accessTarget"], 0),
-        "zero_bits": job["zeroBits"],
-        "source": job.get("source", "local"),
-    }
+    job = create_job_via_api(pub_id, resource, capability="cpu")
+    job_view = job_view_from_api(job)
     body = payment_required(
         resource_url=resource,
         publisher_id=pub_id,
@@ -177,8 +183,10 @@ async def paper(request: Request):
         job_id=job_view["job_id"],
         prefix76_hex=job_view["prefix76_hex"],
         access_target=job_view["access_target"],
+        capability=job_view["capability"],
     )
     header_b64 = encode_payment_required(body)
+    settings = get_settings()
     return TEMPLATES.TemplateResponse(
         request,
         "whitepaper_site/paywall.html",
@@ -191,6 +199,10 @@ async def paper(request: Request):
             "publisher_id": pub_id,
             "resource": resource,
             "api_key": api_key,
+            "access_max_seconds": settings.access_max_seconds,
+            "job_endpoint": "/paper/job",
+            "mine_endpoint": "/paper/mine-browser",
+            "unlock_action": "/paper/unlock",
         },
         status_code=402,
         headers={"PAYMENT-REQUIRED": header_b64},
@@ -271,6 +283,16 @@ async def mine_browser(request: Request):
         return {"ok": False, "error": r.text}
     body = r.json()
     return {"ok": True, "receiptToken": body["receiptToken"]}
+
+
+@app.post("/paper/job")
+async def mint_job(request: Request):
+    data = await request.json()
+    pub_id, _ = ensure_whitepaper_publisher()
+    resource = f"{request.url.scheme}://{request.url.netloc}/paper"
+    capability = str(data.get("capability") or "cpu")
+    job = create_job_via_api(pub_id, resource, capability=capability)
+    return {"ok": True, **job_view_from_api(job), "accessTargetHex": job["accessTarget"]}
 
 
 def main() -> None:

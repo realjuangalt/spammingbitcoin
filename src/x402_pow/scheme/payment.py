@@ -21,6 +21,7 @@ def payment_required(
     prefix76_hex: str,
     access_target: int,
     description: str = "Bitcoin PoW required",
+    capability: str = "cpu",
 ) -> dict[str, Any]:
     settings = get_settings()
     miner_url = f"{settings.public_api_base.rstrip('/')}/static/mine_share.py"
@@ -48,16 +49,16 @@ def payment_required(
                     "prefix76": prefix76_hex,
                     "accessTarget": hex(access_target),
                     "zeroBits": access_zero_bits,
+                    "capability": capability,
                     "facilitator": settings.public_api_base.rstrip("/"),
                     "resourceBinding": resource_url,
                     "minerHint": {
                         "kind": "shell",
-                        "summary": "Fetch pinned miner script, grind SHA-256d until access target, print receipt JSON",
+                        "summary": "Fetch miner; try GPU (hard job) then CPU fallback; print receipt JSON",
                         "commands": [
                             f"curl -fsSL {miner_url} -o /tmp/mine_share.py",
                             f"python3 /tmp/mine_share.py --api {settings.public_api_base.rstrip('/')} "
-                            f"--job-id {job_id} --prefix76 {prefix76_hex} --target {hex(access_target)} "
-                            f"--publisher {publisher_id} --resource {resource_url} --receipt-out -",
+                            f"--publisher {publisher_id} --resource {resource_url} --capability auto --receipt-out -",
                         ],
                     },
                 },

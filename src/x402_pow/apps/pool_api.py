@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 from starlette.requests import Request
 
-from x402_pow.config import ROOT, get_settings
+from x402_pow.config import ROOT, get_settings, mask_upstream_user
 from x402_pow.facilitator.settle import SettleError, settle_receipt, submit_share
 from x402_pow.pool.metrics import (
     format_difficulty,
@@ -43,6 +43,7 @@ class JobRequest(BaseModel):
     publisher_id: str
     resource: str
     access_zero_bits: int | None = None
+    capability: str | None = None
 
 
 class ShareSubmit(BaseModel):
@@ -56,6 +57,12 @@ class SettleRequest(BaseModel):
     receipt_token: str
     publisher_id: str | None = None
     resource: str | None = None
+
+
+class VoteRequest(BaseModel):
+    vote_token: str
+    direction: str | int = "up"
+    board: str | None = "agent"
 
 
 def require_api_key(authorization: str | None = Header(default=None)) -> str:
@@ -137,7 +144,8 @@ def _stats_payload() -> dict:
     snap["upstreamProfile"] = {
         "network": up["network"],
         "host": f"{up['host']}:{up['port']}",
-        "user": up["user"],
+        # Public JSON — never expose the operator's real upstream account/worker.
+        "user": mask_upstream_user(str(up["user"])),
     }
     return snap
 
@@ -302,20 +310,26 @@ def me(publisher_id: str = Depends(require_api_key)):
 
 @app.post("/v1/jobs")
 def create_job(body: JobRequest):
+    from x402_pow.pow.access_tiers import normalize_capability, resolve_access_zero_bits
+
     pub = publishers.get_by_id(body.publisher_id)
     if pub is None:
         raise HTTPException(404, "unknown publisher")
-    bits = body.access_zero_bits or pub.access_zero_bits
+    capability = normalize_capability(body.capability)
+    cpu_bits = body.access_zero_bits if body.access_zero_bits is not None else pub.access_zero_bits
+    bits = resolve_access_zero_bits(cpu_bits, capability)
     job = job_manager.create_job(
         publisher_id=body.publisher_id,
         resource=body.resource,
         zero_bits=bits,
+        capability=capability,
     )
     return {
         "jobId": job.job_id,
         "prefix76": job.prefix76_hex,
         "accessTarget": hex(job.access_target),
         "zeroBits": job.zero_bits,
+        "capability": job.capability,
         "expiresAt": job.expires_at,
         "source": job.source,
         "upstreamJobId": job.upstream_meta.get("upstream_job_id"),
@@ -354,6 +368,77 @@ def settle(body: SettleRequest, publisher_id: str = Depends(require_api_key)):
     except SettleError as e:
         raise HTTPException(e.status, str(e)) from e
     return {"ok": True, "receiptId": receipt.receipt_id, "digest": receipt.digest_hex}
+
+
+@app.post("/v1/memes/vote")
+def memes_vote(body: VoteRequest):
+    from x402_pow import memes as meme_catalog
+    from x402_pow.ledger.db import record_vote
+    from x402_pow.pow.meme_votes import (
+        normalize_board,
+        normalize_direction,
+        vote_weight_from_bits,
+        work_from_bits,
+    )
+    from x402_pow.scheme.vote_tokens import load_vote_token
+
+    try:
+        claim = load_vote_token(body.vote_token)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+
+    board = normalize_board(body.board)
+    direction = normalize_direction(body.direction)
+    achieved = int(claim["achieved_bits"])
+    weight = vote_weight_from_bits(achieved)
+    ok = record_vote(
+        meme_id=claim["meme_id"],
+        board=board,
+        direction=direction,
+        achieved_bits=achieved,
+        work=work_from_bits(achieved),
+        weight=weight,
+        receipt_id=claim["receipt_id"],
+        publisher_id=claim.get("publisher_id"),
+        resource=claim.get("resource"),
+    )
+    if not ok:
+        raise HTTPException(409, "this unlock already voted")
+    meme = meme_catalog.meme_by_id(claim["meme_id"]) or {}
+    return {
+        "ok": True,
+        "memeId": claim["meme_id"],
+        "title": meme.get("title"),
+        "board": board,
+        "direction": direction,
+        "achievedBits": achieved,
+        "weight": round(weight, 2),
+    }
+
+
+@app.get("/v1/memes/leaderboard")
+def memes_leaderboard(board: str | None = None, limit: int = 25):
+    from x402_pow import memes as meme_catalog
+    from x402_pow.ledger.db import meme_scores
+    from x402_pow.pow.meme_votes import normalize_board
+
+    b = normalize_board(board) if board else None
+    rows = meme_scores(board=b, limit=max(1, min(100, limit)))
+    out = []
+    for r in rows:
+        meme = meme_catalog.meme_by_id(r["meme_id"]) or {}
+        out.append(
+            {
+                "memeId": r["meme_id"],
+                "title": meme.get("title"),
+                "credit": meme.get("credit"),
+                "score": round(r["score"], 2),
+                "upWeight": round(r["up_weight"], 2),
+                "downWeight": round(r["down_weight"], 2),
+                "votes": r["votes"],
+            }
+        )
+    return {"board": b or "all", "memes": out}
 
 
 @app.get("/static/mine_share.py")

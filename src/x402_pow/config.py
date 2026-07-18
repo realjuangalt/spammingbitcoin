@@ -27,6 +27,21 @@ def normalize_network(value: str | None) -> str:
     return "testnet"
 
 
+def mask_upstream_user(user: str | None) -> str:
+    """Redact the upstream pool account/worker for public display.
+
+    The dashboard and /v1/stats are public, so never reveal the operator's
+    Braiins account name. Show only the first character + a fixed mask (and
+    drop the worker suffix / length) so the operator can still recognize it
+    without doxxing it to visitors.
+    """
+    u = (user or "").strip()
+    if not u:
+        return "—"
+    account = u.split(".", 1)[0]
+    return (account[0] + "•••••") if account else "•••••"
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -35,9 +50,28 @@ class Settings(BaseSettings):
     public_api_base: str = "http://127.0.0.1:8100"
     public_stratum_host: str = "127.0.0.1"
     public_stratum_port: int = 3333
-    # Calibrated for in-browser WebCrypto (~40 kH/s): 2^18 ≈ 6s average
-    access_zero_bits: int = 18
-    access_max_seconds: int = 3
+    # Easy (CPU) access gate — calibrated for in-browser WebCrypto (~40 kH/s): 2^19 ≈ 13s
+    access_zero_bits: int = 19
+    # Hard (GPU) = CPU bits + bonus (clamped 12–32). Default 19+0 → single effective
+    # tier (browser "GPU" path is multi-lane WebCrypto, ~1× CPU).
+    access_gpu_bits_bonus: int = 0
+    # Wall-clock budget for the CPU attempt (browser/CLI).
+    access_max_seconds: int = 30
+    # --- PoW meme meritocracy (fixed-window voting) ---
+    # Everyone hashes for this fixed window; vote weight = provable work produced.
+    # Target ≤10s of mining on the user UI side.
+    meme_window_seconds: int = 10
+    # Easy unlock gate for the meme flow — low enough that even a weak phone
+    # reliably beats it within the 10s window (decoupled from vote weight).
+    meme_unlock_zero_bits: int = 14
+    # Best-share bits that map to weight 1 (weakest device's ~expected best over
+    # the window). weight = clamp(1 + (achieved_bits - base), 1, cap).
+    vote_weight_base_bits: int = 16
+    vote_weight_cap: float = 12.0
+    # Meme fund: share of pool revenue split across memes by leaderboard rank.
+    # Zero pool fee otherwise (creator-glory model); payouts remain manual/future.
+    meme_fund_percent: float = 5.0
+    creator_fee_percent: float = 2.1
     upstream_mode: str = "local"  # local | reseller
     # Site-wide chain toggle: testnet | mainnet  (env: NETWORK)
     # Flip this one key, restart API. Selects Upstream profile + public labels.
@@ -70,8 +104,9 @@ class Settings(BaseSettings):
     blink_wallet_id: str = ""
     # Minimum accrued sats before auto/manual payout to Site LN address
     payout_min_sats: int = 1000
-    # Pool commission on Site earnings (disclosed at signup; not a normal 1–2% mining pool)
-    pool_fee_percent: int = 21
+    # Pool commission on Site earnings. Zero-fee model: the Pool takes 0% on
+    # mining; the operator earns as a meme creator + the meme fund instead.
+    pool_fee_percent: int = 0
     # Public source repo (nav link on live site)
     public_github_repo: str = "https://github.com/realjuangalt/spammingbitcoin"
 

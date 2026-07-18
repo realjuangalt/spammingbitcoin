@@ -241,8 +241,8 @@
       <a class="brand" href="/">Bitcoin White Paper</a>
       <h1>402 — Bitcoin PoW required</h1>
       <p class="lede">
-        Mine in this browser until a SHA-256d hash beats ~{{ job.zero_bits }} zero bits
-        (usually a few seconds on a laptop). Then Satoshi's white paper unlocks.
+        We try a <strong>GPU hard job</strong> first when your browser supports it, then fall back to a
+        <strong>CPU easy job</strong> (~{{ job.zero_bits }} zero-bits). Then Satoshi's white paper unlocks.
       </p>
     </header>
 
@@ -257,10 +257,11 @@
         <div class="stat"><span class="label">Elapsed</span><span class="value" id="statTime">0.0s</span></div>
         <div class="stat"><span class="label">Hashes</span><span class="value" id="statHashes">0</span></div>
         <div class="stat"><span class="label">Hashrate</span><span class="value" id="statRate">—</span></div>
+        <div class="stat"><span class="label">Backend</span><span class="value" id="statBackend">—</span></div>
         <div class="stat"><span class="label">Nonce</span><span class="value" id="statNonce">0</span></div>
       </div>
       <p id="status">Ready — tap Mine when you are.</p>
-      <p class="job-meta">Job <code>{{ job.job_id }}</code> · target ~{{ job.zero_bits }} zero-bits · source <code>{{ job.source | default('local') }}</code></p>
+      <p class="job-meta" id="jobMeta">Job <code>{{ job.job_id }}</code> · target ~{{ job.zero_bits }} zero-bits · {{ job.capability | default('cpu') }} · source <code>{{ job.source | default('local') }}</code></p>
     </section>
 
     <details class="agent">
@@ -269,7 +270,7 @@
     </details>
   </main>
 
-  <form id="unlockForm" method="post" action="/paper/unlock" hidden>
+  <form id="unlockForm" method="post" action="{{ unlock_action }}" hidden>
     <input type="hidden" name="receipt_token" id="receiptToken" />
     <input type="hidden" name="elapsed_sec" id="elapsedSec" />
     <input type="hidden" name="hashes" id="hashesField" />
@@ -278,153 +279,20 @@
   </form>
 
   <script>
-    const JOB = {
-      jobId: {{ job.job_id | tojson }},
-      prefix76: {{ job.prefix76_hex | tojson }},
-      target: {{ job.access_target }},
-      publisherId: {{ publisher_id | tojson }},
-      resource: {{ resource | tojson }},
-      source: {{ (job.source | default('local')) | tojson }},
-    };
-
-    const mineBtn = document.getElementById("mineBtn");
-    const stopBtn = document.getElementById("stopBtn");
-    const statusEl = document.getElementById("status");
-    const panel = document.getElementById("minePanel");
-    const statTime = document.getElementById("statTime");
-    const statHashes = document.getElementById("statHashes");
-    const statRate = document.getElementById("statRate");
-    const statNonce = document.getElementById("statNonce");
-
-    let stopRequested = false;
-
-    function sha256(buf) {
-      return crypto.subtle.digest("SHA-256", buf);
-    }
-
-    async function sha256d(buf) {
-      const once = await sha256(buf);
-      return new Uint8Array(await sha256(once));
-    }
-
-    function u32le(n) {
-      const b = new Uint8Array(4);
-      new DataView(b.buffer).setUint32(0, n >>> 0, true);
-      return b;
-    }
-
-    function hexToBytes(hex) {
-      const out = new Uint8Array(hex.length / 2);
-      for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
-      return out;
-    }
-
-    function meetsTarget(digest, targetBig) {
-      let hex = "";
-      for (const x of digest) hex += x.toString(16).padStart(2, "0");
-      return BigInt("0x" + hex) < targetBig;
-    }
-
-    function fmt(n) {
-      return n.toLocaleString("en-US");
-    }
-
-    function setStatus(text, kind) {
-      statusEl.textContent = text;
-      statusEl.className = kind || "";
-    }
-
-    function setRunning(on) {
-      panel.classList.toggle("running", on);
-      panel.classList.toggle("found", false);
-      mineBtn.disabled = on;
-      stopBtn.classList.toggle("visible", on);
-      mineBtn.textContent = on ? "Mining…" : "Mine in this browser";
-    }
-
-    stopBtn.onclick = () => {
-      stopRequested = true;
-      setStatus("Stopping…");
-    };
-
-    mineBtn.onclick = async () => {
-      stopRequested = false;
-      setRunning(true);
-      setStatus("Grinding SHA-256d against the pool job…");
-
-      const prefix = hexToBytes(JOB.prefix76);
-      const target = BigInt(JOB.target);
-      const t0 = performance.now();
-      let nonce = 0;
-      let hashes = 0;
-
-      // Smaller batches keep the UI responsive on phones.
-      const batch = matchMedia("(pointer: coarse)").matches ? 64 : 256;
-
-      while (!stopRequested) {
-        for (let i = 0; i < batch; i++) {
-          const header = new Uint8Array(80);
-          header.set(prefix, 0);
-          header.set(u32le(nonce), 76);
-          const digest = await sha256d(header);
-          hashes += 1;
-
-          if (meetsTarget(digest, target)) {
-            const secs = (performance.now() - t0) / 1000;
-            panel.classList.remove("running");
-            panel.classList.add("found");
-            stopBtn.classList.remove("visible");
-            mineBtn.disabled = true;
-            mineBtn.textContent = "Unlocking…";
-            statTime.textContent = secs.toFixed(1) + "s";
-            statHashes.textContent = fmt(hashes);
-            statRate.textContent = fmt(Math.round(hashes / Math.max(secs, 0.001))) + " H/s";
-            statNonce.textContent = String(nonce);
-            setStatus(`Found nonce ${nonce} in ${secs.toFixed(2)}s — submitting receipt…`, "ok");
-
-            try {
-              const resp = await fetch("/paper/mine-browser", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ job_id: JOB.jobId, nonce }),
-              });
-              const data = await resp.json();
-              if (!data.ok) {
-                setStatus("Submit failed: " + data.error, "err");
-                setRunning(false);
-                mineBtn.textContent = "Try again";
-                return;
-              }
-              document.getElementById("receiptToken").value = data.receiptToken;
-              document.getElementById("elapsedSec").value = String(secs);
-              document.getElementById("hashesField").value = String(hashes);
-              document.getElementById("hashrateField").value = String(Math.round(hashes / Math.max(secs, 0.001)));
-              document.getElementById("jobSource").value = JOB.source || "local";
-              document.getElementById("unlockForm").submit();
-            } catch (err) {
-              setStatus("Network error: " + (err && err.message ? err.message : err), "err");
-              setRunning(false);
-              mineBtn.textContent = "Try again";
-            }
-            return;
-          }
-          nonce = (nonce + 1) >>> 0;
-        }
-
-        const secs = (performance.now() - t0) / 1000;
-        const rate = hashes / Math.max(secs, 0.001);
-        statTime.textContent = secs.toFixed(1) + "s";
-        statHashes.textContent = fmt(hashes);
-        statRate.textContent = fmt(Math.round(rate)) + " H/s";
-        statNonce.textContent = String(nonce);
-        setStatus(`Still mining… looking for ~{{ job.zero_bits }} leading zero bits.`);
-        await new Promise((r) => setTimeout(r, 0));
-      }
-
-      setRunning(false);
-      setStatus("Stopped. Hit Mine when you want to try again.");
-      mineBtn.textContent = "Mine in this browser";
+    window.X402_ACCESS = {
+      jobEndpoint: {{ job_endpoint | tojson }},
+      mineEndpoint: {{ mine_endpoint | tojson }},
+      maxSeconds: {{ access_max_seconds | int }},
+      initialJob: {
+        job_id: {{ job.job_id | tojson }},
+        prefix76_hex: {{ job.prefix76_hex | tojson }},
+        access_target: {{ job.access_target }},
+        zero_bits: {{ job.zero_bits }},
+        source: {{ (job.source | default('local')) | tojson }},
+        capability: {{ (job.capability | default('cpu')) | tojson }},
+      },
     };
   </script>
+  {% include "partials/access_miner_script.html" %}
 </body>
 </html>

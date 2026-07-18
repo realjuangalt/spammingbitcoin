@@ -12,7 +12,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 
-from x402_pow.config import get_settings
+from x402_pow.config import get_settings, mask_upstream_user
 
 log = logging.getLogger("x402_pow.stratum")
 
@@ -142,7 +142,8 @@ class UpstreamStratumClient:
                 "lastError": self._last_error,
                 "connectedAt": self._connected_at,
                 "upstream": f"{up['host']}:{up['port']}",
-                "user": up["user"],
+                # Redacted — /health and /v1/stats are public.
+                "user": mask_upstream_user(str(up["user"])),
             }
 
     def start(self) -> None:

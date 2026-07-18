@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>{{ title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c0a08; --fg: #f5e6c8; --accent: #f7931a; --muted: #9a8b70;
+      --panel: #16120e; --line: #2a2218; --ok: #3ddc97; --warn: #e8b45a; --err: #e86a5a;
+      --pad: clamp(1rem, 2.5vw, 2rem); --shell: min(60rem, 100%);
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0; min-height: 100dvh; font-family: "IBM Plex Mono", ui-monospace, monospace;
+      background: var(--bg); color: var(--fg); display: flex; justify-content: center;
+      padding: max(var(--pad), env(safe-area-inset-top)) var(--pad) var(--pad);
+      background-image: radial-gradient(ellipse 70% 40% at 50% 0%, #24180c 0%, transparent 55%);
+    }
+    .shell { width: var(--shell); display: flex; flex-direction: column; gap: 1.1rem; padding-block: clamp(0.5rem, 3vh, 2rem); }
+    a { color: var(--accent); }
+    .brand { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); text-decoration: none; }
+    h1 { margin: 0.2rem 0 0; font-size: clamp(1.4rem, 1.1rem + 2vw, 2rem); color: var(--accent); letter-spacing: -0.02em; }
+    p.lede { margin: 0; color: var(--muted); line-height: 1.5; font-size: clamp(0.9rem, 0.85rem + 0.3vw, 1rem); }
+    code { color: var(--accent); }
+    .panel { background: var(--panel); border: 1px solid var(--line); padding: clamp(0.9rem, 2.2vw, 1.3rem); }
+    .panel h2 { margin: 0 0 0.75rem; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+    .row { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; align-items: flex-end; }
+    label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.78rem; color: var(--muted); }
+    input[type=number] {
+      font-family: inherit; font-size: 1rem; background: #100d0a; color: var(--fg);
+      border: 1px solid var(--line); padding: 0.5rem 0.6rem; width: 8rem;
+    }
+    button {
+      font-family: inherit; font-weight: 700; font-size: 0.95rem; min-height: 2.9rem;
+      padding: 0.65rem 1.15rem; border: 0; cursor: pointer; background: var(--accent); color: #111;
+    }
+    button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+    button:disabled { opacity: 0.55; cursor: wait; }
+    button:hover:not(:disabled) { filter: brightness(1.08); }
+    .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.6rem; }
+    .kv div { background: #100d0a; border: 1px solid var(--line); padding: 0.55rem 0.65rem; }
+    .kv .k { font-size: 0.66rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+    .kv .v { font-size: 0.95rem; font-weight: 600; word-break: break-word; }
+    .v.ok { color: var(--ok); } .v.warn { color: var(--warn); } .v.err { color: var(--err); }
+    #status { margin: 0.6rem 0 0; color: var(--muted); font-size: 0.9rem; min-height: 1.4em; }
+    #status.run { color: var(--warn); } #status.done { color: var(--ok); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { text-align: right; padding: 0.4rem 0.55rem; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+    th:first-child, td:first-child { text-align: left; }
+    th { color: var(--muted); font-weight: 600; font-size: 0.68rem; letter-spacing: 0.05em; text-transform: uppercase; }
+    tr.sweet td { background: rgba(61, 220, 151, 0.08); }
+    tr.current td { outline: 1px solid var(--accent); outline-offset: -1px; }
+    .tag { font-size: 0.64rem; padding: 0.05rem 0.4rem; border: 1px solid var(--line); color: var(--muted); border-radius: 2px; }
+    .rec { line-height: 1.7; }
+    .rec b { color: var(--fg); }
+    .note { font-size: 0.76rem; color: var(--muted); line-height: 1.5; }
+    .scroll { overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <a class="brand" href="/">Spamming Bitcoin</a>
+    <h1>PoW hashrate benchmark</h1>
+    <p class="lede">
+      Measures in-browser SHA-256d throughput using the <strong>same primitives as the meme miner</strong>,
+      then projects solve times per difficulty so you can pick sensible access tiers. The
+      &ldquo;accelerated&rdquo; method is multi-lane WebCrypto (what the current GPU path actually runs) —
+      not true WGSL yet.
+    </p>
+
+    <section class="panel">
+      <h2>Your machine</h2>
+      <div class="kv" id="env"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Throughput benchmark</h2>
+      <div class="row">
+        <label>Duration / method (s)
+          <input type="number" id="dur" value="4" min="1" max="30" step="1" />
+        </label>
+        <label>Accelerated lanes
+          <input type="number" id="lanes" value="8" min="1" max="32" step="1" />
+        </label>
+        <button id="runBtn" type="button">Run benchmark</button>
+        <button id="stopBtn" type="button" class="ghost" disabled>Stop</button>
+      </div>
+      <p id="status">Idle — set a duration and run. Each method runs for the duration above.</p>
+      <div class="scroll">
+        <table id="benchTable">
+          <thead><tr><th>Method</th><th>Lanes</th><th>Hashes</th><th>Seconds</th><th>Hashrate</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Difficulty projection</h2>
+      <div class="row">
+        <label>Target solve time (s)
+          <input type="number" id="target" value="6" min="1" max="120" step="1" />
+        </label>
+        <span class="note">Current gate — CPU <code id="curCpu">{{ cpu_bits }}</code> · GPU <code id="curGpu">{{ gpu_bits }}</code> zero-bits · budget {{ max_seconds }}s</span>
+      </div>
+      <div class="scroll">
+        <table id="projTable">
+          <thead><tr>
+            <th>Zero-bits</th><th>Expected hashes</th>
+            <th>Single-lane</th><th>Accelerated</th><th></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="rec" id="rec"></p>
+      <p class="note">Rows near your target time are highlighted; the current gate bits are outlined. Projections assume mean effort ≈ 2<sup>bits</sup> hashes (real solves vary a lot run-to-run).</p>
+    </section>
+
+    <section class="panel">
+      <h2>Real solve check (optional)</h2>
+      <div class="row">
+        <label>Zero-bits
+          <input type="number" id="solveBits" value="19" min="8" max="30" step="1" />
+        </label>
+        <label>Samples
+          <input type="number" id="solveN" value="3" min="1" max="9" step="1" />
+        </label>
+        <label>Cap / attempt (s)
+          <input type="number" id="solveCap" value="30" min="2" max="120" step="1" />
+        </label>
+        <button id="solveBtn" type="button" class="ghost">Solve (single &amp; accel)</button>
+      </div>
+      <p id="solveStatus" class="note"></p>
+      <div class="scroll">
+        <table id="solveTable">
+          <thead><tr><th>Method</th><th>Samples</th><th>Median</th><th>Min</th><th>Max</th><th>Timeouts</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <p class="note"><a href="/">← Back to the vault</a></p>
+  </main>
+
+  <script>
+  (function () {
+    const $ = (id) => document.getElementById(id);
+
+    // ---- SHA-256d primitives (identical to the access miner) ----
+    async function sha256(b) { return crypto.subtle.digest("SHA-256", b); }
+    async function sha256d(b) { return new Uint8Array(await sha256(await sha256(b))); }
+    function u32le(n) { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, n >>> 0, true); return b; }
+    function targetFromBits(bits) { return 1n << BigInt(256 - bits); }
+    function meetsTarget(d, t) { let h = ""; for (const x of d) h += x.toString(16).padStart(2, "0"); return BigInt("0x" + h) < t; }
+
+    function fmtHps(x) {
+      if (!isFinite(x) || x <= 0) return "—";
+      if (x >= 1e6) return (x / 1e6).toFixed(2) + " MH/s";
+      if (x >= 1e3) return (x / 1e3).toFixed(1) + " kH/s";
+      return x.toFixed(0) + " H/s";
+    }
+    function fmtTime(s) {
+      if (!isFinite(s)) return "∞";
+      if (s < 1) return (s * 1000).toFixed(0) + " ms";
+      if (s < 90) return s.toFixed(1) + " s";
+      if (s < 5400) return (s / 60).toFixed(1) + " min";
+      if (s < 129600) return (s / 3600).toFixed(1) + " h";
+      return (s / 86400).toFixed(1) + " d";
+    }
+    function fmtInt(n) { return Math.round(n).toLocaleString("en-US"); }
+    // Recommended zero-bits so a solve takes ~target seconds at the given rate.
+    function recBits(hps, target) { return hps > 0 ? Math.max(1, Math.floor(Math.log2(hps * target))) : null; }
+
+    let envInfo = {};
+
+    // ---- core hashing runner (benchmark: target=null; solve: target set) ----
+    let stopFlag = false;
+    async function runHashing({ lanes, durationMs, target, prefix, onProgress }) {
+      const t0 = performance.now();
+      let hashes = 0, found = null, stop = false, nextNonce = 0;
+      let lastYield = t0;
+      const chunk = 128;
+      const pfx = prefix || new Uint8Array(76);
+      async function lane() {
+        const header = new Uint8Array(80); header.set(pfx, 0);
+        while (!stop && !stopFlag) {
+          if (performance.now() - t0 >= durationMs) return;
+          const start = nextNonce; nextNonce = (nextNonce + chunk) >>> 0;
+          for (let i = 0; i < chunk; i++) {
+            const nonce = (start + i) >>> 0;
+            header.set(u32le(nonce), 76);
+            const d = await sha256d(header);
+            hashes++;
+            if (target && meetsTarget(d, target)) {
+              found = { nonce, secs: (performance.now() - t0) / 1000, hashes };
+              stop = true; return;
+            }
+          }
+          // Yield to the event loop periodically so the page stays responsive
+          // (progress ticker + paint) instead of appearing to lock up.
+          if (performance.now() - lastYield > 80) {
+            lastYield = performance.now();
+            await new Promise((r) => setTimeout(r));
+          }
+        }
+      }
+      let ticker = null;
+      if (onProgress) ticker = setInterval(() => onProgress(hashes, (performance.now() - t0) / 1000), 250);
+      await Promise.all(Array.from({ length: Math.max(1, lanes) }, lane));
+      if (ticker) clearInterval(ticker);
+      const secs = (performance.now() - t0) / 1000;
+      return { hashes, secs, hps: hashes / Math.max(secs, 1e-6), found };
+    }
+
+    // ---- fire-and-forget server logging ----
+    function logBench(payload) {
+      const body = JSON.stringify(Object.assign({ user_agent: navigator.userAgent }, payload));
+      try {
+        fetch("/bench/log", { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true });
+      } catch (_) {}
+      try { console.log("[bench]", payload); } catch (_) {}
+    }
+
+    function median(arr) {
+      if (!arr.length) return NaN;
+      const a = [...arr].sort((x, y) => x - y);
+      const m = Math.floor(a.length / 2);
+      return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+    }
+
+    // ---- environment ----
+    async function probeWebGPU() {
+      if (!navigator.gpu) return { ok: false, label: "not supported" };
+      try {
+        const adapter = await navigator.gpu.requestAdapter();
+        if (!adapter) return { ok: false, label: "no adapter" };
+        let label = "available";
+        try { const info = adapter.info || (adapter.requestAdapterInfo ? await adapter.requestAdapterInfo() : null);
+          if (info && (info.vendor || info.architecture)) label = [info.vendor, info.architecture].filter(Boolean).join(" / ") || "available"; } catch (_) {}
+        const dev = await adapter.requestDevice(); dev.destroy();
+        return { ok: true, label };
+      } catch (e) { return { ok: false, label: "probe failed" }; }
+    }
+
+    async function renderEnv() {
+      const gpu = await probeWebGPU();
+      const cores = navigator.hardwareConcurrency || "?";
+      const mem = navigator.deviceMemory ? navigator.deviceMemory + " GB" : "n/a";
+      envInfo = { cores: navigator.hardwareConcurrency || null, device_memory: navigator.deviceMemory || null, webgpu: gpu.label, webgpu_ok: gpu.ok };
+      const rows = [
+        ["Logical cores", cores, ""],
+        ["Device memory", mem, ""],
+        ["WebGPU", gpu.label, gpu.ok ? "ok" : "warn"],
+        ["User agent", navigator.userAgent, ""],
+      ];
+      $("env").innerHTML = rows.map(([k, v, cls]) =>
+        `<div><div class="k">${k}</div><div class="v ${cls}">${String(v)}</div></div>`).join("");
+      if (navigator.hardwareConcurrency) $("lanes").value = Math.min(16, navigator.hardwareConcurrency);
+    }
+
+    // ---- benchmark ----
+    let bench = { single: 0, accel: 0, lanes: 0 };
+
+    async function runBench() {
+      stopFlag = false;
+      const dur = Math.max(1, Number($("dur").value) || 4) * 1000;
+      const lanes = Math.max(1, Number($("lanes").value) || 8);
+      $("runBtn").disabled = true; $("stopBtn").disabled = false;
+      const tbody = $("benchTable").querySelector("tbody");
+      tbody.innerHTML = "";
+      const setStatus = (t, cls) => { const s = $("status"); s.textContent = t; s.className = cls || ""; };
+
+      try {
+        setStatus("Benchmarking single-lane (CPU)…", "run");
+        const single = await runHashing({ lanes: 1, durationMs: dur, target: null,
+          onProgress: (h, s) => setStatus(`Single-lane… ${fmtInt(h)} hashes · ${fmtHps(h / Math.max(s, 1e-6))}`, "run") });
+        if (stopFlag) { setStatus("Stopped.", ""); return; }
+        tbody.insertAdjacentHTML("beforeend",
+          `<tr><td>Single-lane (CPU)</td><td>1</td><td>${fmtInt(single.hashes)}</td><td>${single.secs.toFixed(2)}</td><td>${fmtHps(single.hps)}</td></tr>`);
+        bench.single = single.hps;
+
+        setStatus(`Benchmarking accelerated (${lanes} lanes)…`, "run");
+        const accel = await runHashing({ lanes, durationMs: dur, target: null,
+          onProgress: (h, s) => setStatus(`Accelerated ${lanes} lanes… ${fmtInt(h)} hashes · ${fmtHps(h / Math.max(s, 1e-6))}`, "run") });
+        if (stopFlag) { setStatus("Stopped.", ""); return; }
+        tbody.insertAdjacentHTML("beforeend",
+          `<tr><td>Accelerated</td><td>${lanes}</td><td>${fmtInt(accel.hashes)}</td><td>${accel.secs.toFixed(2)}</td><td>${fmtHps(accel.hps)}</td></tr>`);
+        bench.accel = accel.hps; bench.lanes = lanes;
+
+        const speedup = bench.single > 0 ? bench.accel / bench.single : null;
+        setStatus(`Done. Accelerated speedup ≈ ${speedup ? speedup.toFixed(2) : "—"}× over single-lane.`, "done");
+        renderProjection();
+        const target = Math.max(1, Number($("target").value) || 6);
+        logBench({
+          event: "benchmark",
+          duration_s: dur / 1000, lanes,
+          single_hps: Math.round(bench.single), accel_hps: Math.round(bench.accel),
+          speedup: speedup ? Number(speedup.toFixed(3)) : null,
+          target_s: target,
+          rec_cpu_bits: recBits(bench.single, target), rec_gpu_bits: recBits(bench.accel, target),
+          cores: envInfo.cores, device_memory: envInfo.device_memory,
+          webgpu: envInfo.webgpu, webgpu_ok: envInfo.webgpu_ok,
+        });
+      } catch (e) {
+        setStatus("Error: " + (e && e.message ? e.message : e), "");
+      } finally {
+        $("runBtn").disabled = false; $("stopBtn").disabled = true;
+      }
+    }
+
+    // ---- projection ----
+    function renderProjection() {
+      const tbody = $("projTable").querySelector("tbody");
+      const target = Math.max(1, Number($("target").value) || 6);
+      const curCpu = Number($("curCpu").textContent);
+      const curGpu = Number($("curGpu").textContent);
+      const hS = bench.single, hA = bench.accel;
+      let rows = "";
+      for (let bits = 14; bits <= 30; bits++) {
+        const expected = Math.pow(2, bits);
+        const tS = hS > 0 ? expected / hS : Infinity;
+        const tA = hA > 0 ? expected / hA : Infinity;
+        // "sweet" if either method lands within 0.5x–1.5x of target
+        const sweet = (hS > 0 && tS >= target * 0.5 && tS <= target * 1.5) ||
+                      (hA > 0 && tA >= target * 0.5 && tA <= target * 1.5);
+        const cls = [sweet ? "sweet" : "", (bits === curCpu || bits === curGpu) ? "current" : ""].filter(Boolean).join(" ");
+        const badge = bits === curCpu ? ' <span class="tag">CPU now</span>' : (bits === curGpu ? ' <span class="tag">GPU now</span>' : "");
+        rows += `<tr class="${cls}"><td>${bits}${badge}</td><td>${fmtInt(expected)}</td><td>${hS > 0 ? fmtTime(tS) : "—"}</td><td>${hA > 0 ? fmtTime(tA) : "—"}</td><td></td></tr>`;
+      }
+      tbody.innerHTML = rows;
+
+      const rc = recBits(hS, target), ra = recBits(hA, target);
+      if (hS > 0 || hA > 0) {
+        const speedup = hS > 0 ? hA / hS : 0;
+        let verdict = "";
+        if (hS > 0 && hA > 0) {
+          verdict = speedup < 1.25
+            ? ` <b>Accelerated ≈ single-lane (${speedup.toFixed(2)}×)</b> on this machine — a separate, harder GPU tier isn't worth it; use one tier.`
+            : ` Accelerated is ${speedup.toFixed(2)}× faster — a GPU bonus of about <code>${Math.max(0, ra - rc)}</code> bits is justified.`;
+        }
+        $("rec").innerHTML =
+          `For a ~<b>${target}s</b> solve: recommended <b>CPU ${rc ?? "—"}</b> zero-bits (single-lane @ ${fmtHps(hS)}), ` +
+          `<b>GPU ${ra ?? "—"}</b> zero-bits (accelerated @ ${fmtHps(hA)}). ` +
+          (rc != null && ra != null ? `That's <code>ACCESS_ZERO_BITS=${rc}</code> with <code>ACCESS_GPU_BITS_BONUS=${Math.max(0, ra - rc)}</code>.` : "") +
+          verdict;
+      } else {
+        $("rec").textContent = "Run the benchmark to compute recommendations.";
+      }
+    }
+
+    // ---- real solve ----
+    async function runSolve() {
+      stopFlag = false;
+      const bits = Math.max(8, Number($("solveBits").value) || 19);
+      const n = Math.max(1, Number($("solveN").value) || 3);
+      const capMs = Math.max(2, Number($("solveCap").value) || 30) * 1000;
+      const lanes = Math.max(1, Number($("lanes").value) || 8);
+      const target = targetFromBits(bits);
+      $("solveBtn").disabled = true;
+      const tbody = $("solveTable").querySelector("tbody"); tbody.innerHTML = "";
+      const setS = (t) => { $("solveStatus").textContent = t; };
+
+      try {
+        const logResults = [];
+        for (const method of [{ name: "Single-lane (CPU)", lanes: 1 }, { name: "Accelerated", lanes }]) {
+          const times = []; let timeouts = 0;
+          for (let i = 0; i < n; i++) {
+            if (stopFlag) break;
+            setS(`${method.name}: solving ${bits}-bit sample ${i + 1}/${n}…`);
+            const prefix = crypto.getRandomValues(new Uint8Array(76));
+            const r = await runHashing({ lanes: method.lanes, durationMs: capMs, target, prefix });
+            if (r.found) { times.push(r.found.secs); }
+            else { timeouts++; }
+          }
+          const med = times.length ? median(times) : null;
+          tbody.insertAdjacentHTML("beforeend",
+            `<tr><td>${method.name}</td><td>${n}</td><td>${times.length ? fmtTime(med) : "—"}</td><td>${times.length ? fmtTime(Math.min(...times)) : "—"}</td><td>${times.length ? fmtTime(Math.max(...times)) : "—"}</td><td>${timeouts}</td></tr>`);
+          logResults.push({ method: method.name, lanes: method.lanes, median_s: med, samples: times.map((t) => Number(t.toFixed(3))), timeouts });
+        }
+        setS(stopFlag ? "Stopped." : `Done — ${bits}-bit solve samples complete.`);
+        logBench({ event: "solve", solve_bits: bits, samples: n, cap_s: capMs / 1000, results: logResults,
+          cores: envInfo.cores, webgpu: envInfo.webgpu, webgpu_ok: envInfo.webgpu_ok });
+      } catch (e) {
+        setS("Error: " + (e && e.message ? e.message : e));
+      } finally {
+        $("solveBtn").disabled = false;
+      }
+    }
+
+    $("runBtn").onclick = runBench;
+    $("stopBtn").onclick = () => { stopFlag = true; };
+    $("solveBtn").onclick = runSolve;
+    $("target").oninput = renderProjection;
+
+    renderEnv();
+    renderProjection();
+  })();
+  </script>
+</body>
+</html>
